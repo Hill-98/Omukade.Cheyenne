@@ -226,6 +226,8 @@ namespace Omukade.Cheyenne.Patching
     [HarmonyPatch(nameof(MatchBoard.IsRuleSet2023), MethodType.Getter)]
     static class FeatureSetPerformanceBoost
     {
+        static bool Prepare() => Program.config.EnableRuleChanges2023Patch;
+
         /*
         Reference slightly higher-performant implementation:
         ========================================================

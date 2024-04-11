@@ -1,8 +1,3 @@
 {
-  "carddata-directory": "R:\\PTCGL-CardDefinitions\\",
-  "imex-port": 10851,
-  "cardsource-overrides-enable": false,
-  "cardsource-overrides-directory": "R:\\",
-  "discord-error-webhook-enable":  false,
-  "discord-error-webhook-url": "FOO"
+  "enable-rule-changes-2023-patch": false
 }

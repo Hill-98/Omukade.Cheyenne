@@ -45,6 +45,9 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "disable-player-order-randomization")]
         public bool DisablePlayerOrderRandomization = false;
 
+        [JsonProperty(PropertyName = "enable-rule-changes-2023-patch")]
+        public bool EnableRuleChanges2023Patch = true;
+
         [JsonProperty(PropertyName = "discord-error-webhook-enable")]
         public bool EnableDiscordErrorWebhook = false;
 
