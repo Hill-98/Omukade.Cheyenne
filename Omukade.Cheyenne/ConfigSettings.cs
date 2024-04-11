@@ -30,6 +30,9 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "carddata-directory")]
         public string CardDataDirectory = Path.Combine(AutoPAR.Rainier.RainierSharedDataHelper.GetSharedDataDirectory(), "PTCGL-CardDefinitions");
 
+        [JsonProperty(PropertyName = "ban-players-file")]
+        public string BanPlayersFile = "ban-players.txt";
+
         [JsonProperty(PropertyName = "ws-port")]
         public int HttpPort = 10850;
 
