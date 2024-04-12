@@ -15,11 +15,16 @@ namespace Omukade.Cheyenne
 
         public static void Initialization()
         {
-            if (watcher != null || File.Exists(Program.config.BanPlayersFile))
+            if (watcher != null)
             {
                 return;
             }
-            var file = new FileInfo(Program.config.BanPlayersFile);
+            string path = Program.config.BanPlayersFile;
+            if (!File.Exists(path))
+            {
+                File.WriteAllBytes(path, Array.Empty<byte>());
+            }
+            FileInfo file = new FileInfo(path);
             if (file.Directory == null)
             {
                 AnsiConsole.WriteLine("Unable to obtain the directory where ban players file is located.");
