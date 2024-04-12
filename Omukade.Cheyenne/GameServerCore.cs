@@ -108,6 +108,10 @@ namespace Omukade.Cheyenne
 
             BasicMatchmakingSwimlane standardSwimlane = new(GameplayType.Casual, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane expandedSwimlane = new(GameplayType.Casual, GameMode.Expanded, SwimlaneCompletedMatchMakingCallback);
+            if (config.OneGameModeMatch)
+            {
+                standardSwimlane = expandedSwimlane;
+            }
             MatchmakingSwimlanes = new(2)
             {
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Standard), standardSwimlane },

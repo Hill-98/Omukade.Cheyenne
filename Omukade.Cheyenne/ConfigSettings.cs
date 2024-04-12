@@ -79,6 +79,9 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "enable-game-timers")]
         public bool EnableGameTimers = false;
 
+        [JsonProperty(PropertyName = "one-game-mode-match")]
+        public bool OneGameModeMatch = false;
+
         [JsonProperty(PropertyName = "debug-enable-deterministic-decklist-preperation")]
         public bool DebugEnableDeterministicDecklistPreperation = false;
 

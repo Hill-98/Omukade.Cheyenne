@@ -1,3 +1,5 @@
 {
-  "enable-rule-changes-2023-patch": false
+  "enable-game-timers": true,
+  "enable-rule-changes-2023-patch": false,
+  "one-game-mode-match": true
 }
