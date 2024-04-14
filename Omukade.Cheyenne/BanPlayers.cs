@@ -8,6 +8,8 @@ namespace Omukade.Cheyenne
 
         static FileSystemWatcher? watcher = null;
 
+        public static event EventHandler? OnUpdate;
+
         public static bool IsBan(string? name)
         {
             return !string.IsNullOrEmpty(name) && PlayerNames.Contains(name, StringComparer.InvariantCultureIgnoreCase);
@@ -59,6 +61,11 @@ namespace Omukade.Cheyenne
                     continue;
                 };
                 PlayerNames.Add(name);
+            }
+
+            if (OnUpdate != null)
+            {
+                OnUpdate(null, new EventArgs());
             }
         }
 

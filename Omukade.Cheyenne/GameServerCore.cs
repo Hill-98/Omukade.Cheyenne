@@ -117,7 +117,22 @@ namespace Omukade.Cheyenne
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Standard), standardSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Expanded), expandedSwimlane },
             };
+
+            BanPlayers.OnUpdate += BanPlayers_OnUpdate;
         }
+
+        private void BanPlayers_OnUpdate(object? sender, EventArgs e)
+        {
+            foreach (var item in UserMetadata)
+            {
+                var player = item.Value;
+                if (BanPlayers.IsBan(player.PlayerDisplayName))
+                {
+                    ForcePlayerToQuit(player);
+                }
+            }
+        }
+
         private void SwimlaneCompletedMatchMakingCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2)
         {
             this.StartGameBetweenTwoPlayers(player1, player2);
@@ -331,6 +346,12 @@ namespace Omukade.Cheyenne
                 if(mmc == null)
                 {
                     throw new ArgumentNullException("Tried to begin matchmaking with a null " + nameof(MatchmakingContext));
+                }
+
+                if (BanPlayers.IsBan(player.PlayerDisplayName))
+                {
+                    SendPacketToClient(player, new MatchmakingCancelled(bm.txid));
+                    return;
                 }
 
                 uint swimlaneKey = BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, mmc.gameMode);

@@ -177,21 +177,6 @@ namespace Omukade.Cheyenne
 
             try
             {
-                Type t = controller.GetType();
-                if (!t.IsGenericType || t.GetGenericTypeDefinition() != typeof(Shell.FakeClients.ConsoleSingleMessageShimClientConnection<>))
-                {
-                    if (BanPlayers.IsBan(controller.Tag?.PlayerDisplayName) && message is not ControlMessage)
-                    {
-                        return;
-                    }
-                }
-            }
-            catch (NotImplementedException e)
-            {
-            }
-
-            try
-            {
                 switch (message)
                 {
                     case ControlMessage:
