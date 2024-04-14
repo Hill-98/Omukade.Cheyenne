@@ -191,8 +191,11 @@ namespace Omukade.Cheyenne.Miniserver.Controllers
 
         public void Dispose()
         {
-            this.ws.Abort();
-            this.ws.Dispose();
+            try
+            {
+                this.ws.Abort();
+                this.ws.Dispose();
+            } catch { }
         }
 
         public bool IsOpen => ws.State == WebSocketState.Open;
@@ -217,6 +220,7 @@ namespace Omukade.Cheyenne.Miniserver.Controllers
                     try
                     {
                         cts = new CancellationTokenSource(WS_TIMEOUT_MS);
+
                         WebSocketReceiveResult? receiveResult = await ws.ReceiveAsync(new ArraySegment<byte>(messageAccumulatorBuffer), cts.Token).ConfigureAwait(continueOnCapturedContext: false);
                         cts.Dispose();
 
