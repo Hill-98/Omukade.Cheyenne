@@ -66,6 +66,7 @@ These should generally not be changed from their defaults; doing so may have sig
 * debug-fixed-rng-seed - Uses a fixed RNG seed for all games, ensuring all coinflips/deckshuffles/other randomization is the same each time. Default is `false`.
 * enable-reporting-all-implemented-cards - Whether to enable reporting all implemented expanded cards to clients. Default is `true`.
 * debug-prizes-per-player - Changes the starting number of prizes. Default: 6.
+* debug-game-timer-time - Change the game timer time in seconds. Default: 1500
 
 ### Omukade Shared Data Directory
 The various Omukade projects all share common TCGL data (eg, game binaries, card and rule definitions) to avoid duplication of data, and reduce maintainance requirements that would otherwise occur if each Omukade program used its own copy of TCGL data. This directory is located:

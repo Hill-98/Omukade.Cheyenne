@@ -87,5 +87,8 @@ namespace Omukade.Cheyenne
 
         [JsonProperty(PropertyName = "debug-prizes-per-player")]
         public int? DebugPrizesPerPlayer = null;
+
+        [JsonProperty(PropertyName = "debug-game-timer-time")]
+        public int? DebugGameTimerTime = null;
     }
 }
