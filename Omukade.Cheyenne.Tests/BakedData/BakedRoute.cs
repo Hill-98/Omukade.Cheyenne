@@ -58,6 +58,11 @@ namespace Omukade.Cheyenne.Tests.BakedData
             
         }
 
+        public void SelectWebsocketServicePort(string port, string suffix)
+        {
+            
+        }
+
         public void SetServiceGroup(string serviceGroup) => this.ServiceGroup = serviceGroup;
     }
 }

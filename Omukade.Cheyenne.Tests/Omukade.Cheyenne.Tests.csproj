@@ -32,29 +32,29 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<Reference Include="FlatBuffers.Core">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\FlatBuffers.Core.dll</HintPath>
-			<Private>True</Private>
-		</Reference>
 		<Reference Include="MatchLogic">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\MatchLogic.dll</HintPath>
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\MatchLogic.dll</HintPath>
 			<Private>True</Private>
 		</Reference>
 		<Reference Include="ClientNetworking">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\ClientNetworking.dll</HintPath>
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\ClientNetworking.dll</HintPath>
 			<Private>True</Private>
 		</Reference>
 		<Reference Include="RainierClientSDK">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\RainierClientSDK.dll</HintPath>
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\RainierClientSDK.dll</HintPath>
 			<Private>True</Private>
 		</Reference>
 		<Reference Include="SharedLogicUtils">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\SharedLogicUtils.dll</HintPath>
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\SharedLogicUtils.dll</HintPath>
 			<Private>True</Private>
 		</Reference>
 		<Reference Include="RainierClientSDK">
-			<HintPath>..\..\Rainier-Assemblies\1.12.0.293233.20240306_2344_PAR\MockPlatformSDK.dll</HintPath>
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\MockPlatformSDK.dll</HintPath>
 			<Private>True</Private>
+		</Reference>
+		<Reference Include="Google.Flatbuffers">
+			<HintPath>$(LOCALAPPDATA)\omukade\rainier-shared\rainier-client_PAR\Google.Flatbuffers.dll</HintPath>
+			<Private>False</Private>
 		</Reference>
 	</ItemGroup>
 

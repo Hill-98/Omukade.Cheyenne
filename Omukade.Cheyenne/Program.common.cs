@@ -16,12 +16,14 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **************************************************************************/
 
+using ClientNetworking;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Newtonsoft.Json;
 using Omukade.AutoPAR;
 using Omukade.Cheyenne.Encoding;
 using Omukade.Cheyenne.Miniserver.Controllers;
+using Omukade.Tools.RainierCardDefinitionFetcher.Model;
 using Spectre.Console;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -105,27 +107,67 @@ namespace Omukade.Cheyenne
 
         private static void CheckForCardUpdates()
         {
-            Console.WriteLine("Attempting to check for card + rule updates...");
-            if(config.CardDefinitionFetcherPath == null)
+            if(!config.CardDefinitionFetchOnStart)
             {
-                Console.WriteLine("Card Definition Fetcher location not set in config.");
-                Console.WriteLine($"It is strongly recommended to set this property ({ConfigSettings.CardDefinitionFetcherJsonPropertyName}) to permit updates to the game rules.");
+                Console.WriteLine("Fetching card definition updates on start is disabled; continuing");
+                return;
             }
-            else if(!File.Exists(config.CardDefinitionFetcherPath))
+
+            Console.WriteLine("Attempting to check for card + rule updates...");
+
+            string secretFname;
+            if(File.Exists("secrets.json"))
             {
-                Console.WriteLine("Card Definition Fetcher location is set but does not exist.");
-                Console.WriteLine($"Verify the property ({ConfigSettings.CardDefinitionFetcherJsonPropertyName}) is correctly set to permit updates to the game rules.");
+                secretFname = "secrets.json";
+            }
+            else if(!string.IsNullOrEmpty(config.CardDefinitionFetcherPath) && File.Exists(Path.Join(config.CardDefinitionFetcherPath, "secrets.json")))
+            {
+                // For legacy installations still using CardDefinitionFetcherPath, attempt to use that secrets file.
+                secretFname = Path.Join(config.CardDefinitionFetcherPath, "secrets.json");
+
+                Logging.WriteWarning("Check for Card Updates: secrets.json not found, but CardDefinitionFetcherPath is set and has secrets.json; using that configuration.");
+                Logging.WriteWarning("This is a deprecated setup; secrets.json should be in the server's working directory.");
             }
             else
             {
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = config.CardDefinitionFetcherPath;
-                psi.Arguments = "--fetch-carddefinitions --fetch-rules --fetch-featureflags --no-update-check --quiet";
-                psi.WorkingDirectory = Path.GetDirectoryName(config.CardDefinitionFetcherPath);
+                Console.Error.WriteLine("secrets.json not found; cannot check for updates.");
+                if (!config.CardDefinitionContinueOnError)
+                {
+                    Environment.Exit(1);
+                }
+                return;
+            }
 
-                Process cardFetcherProcess = Process.Start(psi)!;
+            SecretsConfig secrets = JsonConvert.DeserializeObject<SecretsConfig>(File.ReadAllText(secretFname));
 
-                cardFetcherProcess.WaitForExit();
+            if(string.IsNullOrEmpty(secrets.username) || string.IsNullOrEmpty(secrets.password))
+            {
+                Console.Error.WriteLine("Username and/or password not specified in secrets; cannot check for updates.");
+                if (!config.CardDefinitionContinueOnError)
+                {
+                    Environment.Exit(1);
+                }
+                return;
+            }
+
+            try
+            {
+                IClient client = Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.PrepareClient(secrets);
+                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchAndSaveAllGamemodeData(client);
+                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchAndSaveCardDefinitions(client);
+                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchFeatureFlags(client);
+                client.DisconnectAsync().Wait();
+            }
+            catch(Exception e)
+            {
+                ReportUserError("Exception while fetching card updates", e);
+
+                if (config.CardDefinitionContinueOnError)
+                {
+                    return;
+                }
+
+                throw;
             }
         }
 

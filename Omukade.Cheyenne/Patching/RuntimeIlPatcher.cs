@@ -18,7 +18,7 @@
 
 //#define BAKE_RNG
 
-using FlatBuffers;
+using Google.FlatBuffers;
 using HarmonyLib;
 using ICSharpCode.SharpZipLib.GZip;
 using MatchLogic;

@@ -472,7 +472,8 @@ namespace Omukade.Cheyenne.Tests
                     PlayerSelection ps = psi.playerSelection;
                     if (ps?.variableSelection is ActionSelection actionSelect && actionSelect.subActionType == SubAction.SubActionType.AddAction)
                     {
-                        CardInfo.AddActionOutcomesForSelection(ps.originCardEntityID, actionSelect, match);
+                        ICardInfoUpdater ciu = new CardInfoUpdater();
+                        ciu.AddActionOutcomesForSelection(ps.originCardEntityID, actionSelect, match, new CardInfoRetriever());
                     }
 
                     return (Enumerable.Empty<ActionModification>(), psi.playerSelection);

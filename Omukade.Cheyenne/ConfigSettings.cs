@@ -64,8 +64,14 @@ namespace Omukade.Cheyenne
         public bool DebugFixedRngSeed = false;
 
         public const string CardDefinitionFetcherJsonPropertyName = "card-definition-fetcher-path";
-        [JsonProperty(PropertyName = CardDefinitionFetcherJsonPropertyName)]
+        [JsonProperty(PropertyName = CardDefinitionFetcherJsonPropertyName), Obsolete("Obsolete with the NuGet package for this functionality")]
         public string? CardDefinitionFetcherPath;
+
+        [JsonProperty(PropertyName = "card-definition-fetch-on-start")]
+        public bool CardDefinitionFetchOnStart = true;
+
+        [JsonProperty(PropertyName = "card-definition-continue-on-error")]
+        public bool CardDefinitionContinueOnError = false;
 
         [JsonProperty(PropertyName = "autopar-autodetect-rainier-install-directory")]
         public bool? AutoparAutodetectRainier = false;

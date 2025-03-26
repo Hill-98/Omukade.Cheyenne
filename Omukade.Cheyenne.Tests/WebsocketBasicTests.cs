@@ -16,7 +16,7 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **************************************************************************/
 
-using FlatBuffers;
+using Google.FlatBuffers;
 using Microsoft.AspNetCore.Builder;
 using MonoMod.Utils;
 using Omukade.Cheyenne.Miniserver.Controllers;
@@ -59,7 +59,7 @@ namespace Omukade.Cheyenne.Tests
             StifleHeartbeat = true
         };
 
-        static TokenHolder fakeTokenHolder = new TokenHolder(null);
+        static TokenHolder fakeTokenHolder = new TokenHolder(accessKey: null, client: null);
 
         public WebsocketBasicTests()
         {
@@ -130,7 +130,7 @@ namespace Omukade.Cheyenne.Tests
             WebsocketPersistent wsp = new WebsocketPersistent(enableHeartbeats: false, enableMessageReceipts: false, enableVerboseLogging: false);
 
             WebsocketWrapper wsw = new WebsocketWrapper(logger: new NopClientLogger(), router, token: fakeTokenHolder, dispatcher: md, CODEC_TO_USE, settings: wsSettings, persistent: wsp,
-                onNetworkStatusChange: null, onDisconnect: null, onServerTimeAvailable: null);
+                onNetworkStatusChange: null, onDisconnect: null, onServerTimeAvailable: null, userAgentString: "Omukade/Tests 1.0");
 
             try
             {
@@ -203,7 +203,7 @@ namespace Omukade.Cheyenne.Tests
             WebsocketPersistent wsp = new WebsocketPersistent(enableHeartbeats: false, enableMessageReceipts: false, enableVerboseLogging: false);
 
             WebsocketWrapper wsw = new WebsocketWrapper(logger: new NopClientLogger(), router, token: fakeTokenHolder, dispatcher: md, CODEC_TO_USE, settings: wsSettings, persistent: wsp,
-                onNetworkStatusChange: null, onDisconnect: null, onServerTimeAvailable: null);
+                onNetworkStatusChange: null, onDisconnect: null, onServerTimeAvailable: null, userAgentString: "Omukade/Tests 1.0");
 
             bool receivedSignal = false;
             try

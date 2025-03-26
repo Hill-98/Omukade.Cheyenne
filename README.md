@@ -4,39 +4,29 @@
 This is the server software for running private Pokemon TCG Live servers (codename Rainier). It provides complete support for all gameplay aspects (eg, cards, gamerules), and basic matchmaking and friend support, without relying on official Pokemon TCG Live servers.
 (Clients may still require official servers for storing decks, maintaining friend lists, and fetching assets.)
 
+**If you just want to play the game**, this is not the correct software. You want the [Native Omukade Connector](https://github.com/Hastwell/Rainer.NativeOmukadeConnector).
+
 ## Requirements
 * [.NET 6 Runtime or SDK](https://dotnet.microsoft.com/en-us/download/dotnet/6.0) for your platform
-* [Rainier Card Definition Fetcher](https://github.com/Hastwell/Rainier.CardDefinitionFetcher)
-* Valid Pokemon Trainer's Club account that has logged in to TCGL at least once (used for fetching game data).
+* A valid Pokemon Trainer's Club account that has logged in to TCGL at least once (used for fetching game data).
 * Supports Windows x64 and Linux x64 + ARM64
 * Clients need to use a Connector (such as [Native Omukade Connector](https://github.com/Hastwell/Rainer.NativeOmukadeConnector))
 to connect their game to an Omukade Cheyenne or other Omukade server.
 * For developing:
     * Visual Studio 2022 (any edition) with C#
-    * [Procedual Assembly Rewriter](https://github.com/Hastwell/Omukade.ProcedualAssemblyRewriter)
 
 ## Usage
 
 ### Quick(ish) Install Guide
 0. _(Recommended for security, but optional)_ Create a seperate user dedicated to running Cheyenne and other Omukade software. This user should not have administrative rights.
-1. Download the current release of both Omukade Cheyenne and Rainier Card Definition Fetcher for your OS and architecture.
+1. Download the current release of Omukade Cheyenne for your OS and architecture.
 2. Extract the Omukade Cheyenne release files to the desired directory. This directory should be accessable by the user that will run Omukade Cheyenne.
-3. Create the directory for Rainier Card Definition Fetcher in the desired directory. This directory should be accessable by the user that will run Omukade Cheyenne. To use the default settings:
-    * Under Windows, if running as yourself, navigate to `%USERPROFILE%` and create the directory `Rainier.CardDefinitionFetcher`
-    * Under Windows, if running as a dedicated user, navigate to that user's profile (eg, `C:\Users\MyNewUser`) and create the directory `Rainier.CardDefinitionFetcher`
-    * Under Linux (whether yourself or a dedicated user), navigate to the home directory of the user that will run Cheyenne and create the directory and create the directory `Rainier.CardDefinitionFetcher` (eg, `/home/omukade/Rainier.CardDefinitionFetcher`)
-4. Extract the Rainier Card Definition Fetcher files to the `Rainier.CardDefinitionFetcher` directory.
-5. Inside the `Rainier.CardDefinitionFetcher` directory, create the file `secrets.json` and enter a valid Trainer's Club username and password to download the game data.
+4. Inside the installation directory, create the file `secrets.json` and enter a valid Trainer's Club username and password to download the game data.
 **The account chosen must have signed into TCG Live at least once and completed the "Authorize TCGL to use your account" prompts.** This account does not have to be your own, and can be one dedicated solely to this purpose.
 An example `secrets.json` resembles:
 ```json
 {"username":"your-trainer-club-username","password":"your-trainer-club-password"}
 ```
-
-
-Before using this application, you must have a current copy of the Pokemon TCG Live gamerules and card data, retrieved by Rainier Card Definition Fetcher. This does not have to be run on the same computer as the Omukade server, but this is recommended for ease of keeping rules up-to-date.
-By default, the game data will be downloaded to the [Omukade Shared Data Directory](#Omukade-Shared-Data-Directory).
-Experimental support has been added for automatically checking for game data each time the server is started, but this is not well-tested yet. (see config.json - `card-definition-fetcher-path`).
 
 This application uses AutoPAR to load the TCGL assemblies; it will usually automatically download the game and any updates to it when the server is started. If this does not work, see _AutoPAR Issues_.
 
@@ -44,10 +34,6 @@ The default port the server uses is 10850. 10851 will be used in the future to p
 ### Configuration
 #### config.json - General Settings
 The default settings are usually sufficient to start a server without additional settings.
-* card-definition-fetcher-path - The path to the Rainier Card Definition Fetcher, including filename. If supplied, this will be called each time the server is started. **Supplying this is strongly recommended for automatic updates.**
-    * Default on Windows: `%USERPROFILE%\Rainier.CardDefinitionFetcher\Rainier.CardDefinitionFetcher.exe`
-    * Default on Linux: `~/Rainier.CardDefinitionFetcher/Rainier.CardDefinitionFetcher`
-
 * autopar-search-directory - The folder to search for the Pokemon TCG Live assemblies, usually the game's `Managed` directory or a copy thereof. **Required only if** AutoPAR cannot retrieve game updates correctly.
 * autopar-autodetect-rainier-install-directory: Attempts to search the computer the server is running on for a PTCGL install, and use its game binaries to run the server. **Required only if** AutoPAR cannot retrieve game updates correctly; Windows only and requires a PTCGL install.
 * ws-port - The port to run the server on. Defaults to 10850.
@@ -61,7 +47,7 @@ The default settings are usually sufficient to start a server without additional
 #### config.json - Advanced Settings
 These should generally not be changed from their defaults; doing so may have significant undesirable side effects.
 
-* carddata-directory - The folder containing all game rules downloaded by Rainier Card Definition Fetcher. Defaults to `PTCGL-CardDefinitions` under the [Omukade Shared Data Directory](#Omukade-Shared-Data-Directory).
+* carddata-directory - The folder containing all game rules downloaded by the server. Defaults to `PTCGL-CardDefinitions` under the [Omukade Shared Data Directory](#Omukade-Shared-Data-Directory).
 * disable-player-order-randomization - Disables the randomization of which player is considered P1 vs P2 when a game starts. P1 and P2 instead become eg, the first and second player to queue. P1 will always call the opening coinflip. Default is `false`.
 * debug-fixed-rng-seed - Uses a fixed RNG seed for all games, ensuring all coinflips/deckshuffles/other randomization is the same each time. Default is `false`.
 * enable-reporting-all-implemented-cards - Whether to enable reporting all implemented expanded cards to clients. Default is `true`.
@@ -92,18 +78,9 @@ Currently, these endpoints are:
 ## Compiling
 
 ### Rainier Dependencies with AutoPAR
-Before building this project, you'll need to run ManualPAR (part of the [Procedual Assembly Rewriter](https://github.com/Hastwell/Omukade.ProcedualAssemblyRewriter)) against the TCGL assemblies to produce a version
-with public members that can be accessed by this tool. Use arguments `--fetch-update --rainier-specific`.
-
-These assemblies need to be located in:
-```
-[your sources folder]
-|- Rainier-Assemblies
-|  |- 1.3.11.156349.20221208_0543_PAR (or whatever version is latest)
-|
-|- Omukade.Cheyenne
-|  |- Omukade.Cheyenne.sln
-```
+When checking out a project using AutoPAR for the first time, you may see errors related to types and assemblies not found.
+The `Omukade.AutoPAR.BuildPipeline.Rainier` package will fetch and prepare these dependencies for you when attempting a build.
+No manual action should be needed, although client updates may require changing referenced libraries (eg, old libs removed, new ones added that are now required)
 
 ### Building
 * Use Visual Studio 2022 or later, build the project.

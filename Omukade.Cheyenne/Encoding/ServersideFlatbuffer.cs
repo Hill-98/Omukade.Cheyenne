@@ -19,7 +19,7 @@
 using com.pokemon.studio.contracts.client_gameserver;
 using com.pokemon.studio.contracts.client_user;
 using com.pokemon.studio.contracts.client_websocket;
-using FlatBuffers;
+using Google.FlatBuffers;
 using ClientNetworking.Models;
 using ClientNetworking.Models.GameServer;
 using ClientNetworking.Models.Matchmaking;
