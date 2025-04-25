@@ -76,6 +76,9 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "autopar-autodetect-rainier-install-directory")]
         public bool? AutoparAutodetectRainier = false;
 
+        [JsonProperty(PropertyName = "enable-rule-changes-2023-patch")]
+        public bool EnableRuleChanges2023Patch = true;
+
         [JsonProperty(PropertyName = "autopar-search-directory")]
         public string? AutoparGameInstallOverrideDirectory;
 

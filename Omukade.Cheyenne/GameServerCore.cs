@@ -161,6 +161,9 @@ namespace Omukade.Cheyenne
         {
             Dictionary<string, Dictionary<string, bool>> rawNestedDoc = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, bool>>>(File.ReadAllText(Path.Combine(config.CardDataDirectory, "feature-flags.json")))!;
             FeatureFlags = rawNestedDoc["featureMap"];
+            FeatureFlags[FeatureFlag.RuleChanges2023] = Program.config.EnableRuleChanges2023Patch;
+            FeatureFlags[FeatureFlag.UsePassiveEffectsStoredOnCardEntity] = false;
+            Console.WriteLine("RuleChanges2023: " + FeatureFlags["RuleChanges2023"].ToString());
         }
 
         private static void EnsurePlayerDataForMatch(PlayerMetadata playerData)
