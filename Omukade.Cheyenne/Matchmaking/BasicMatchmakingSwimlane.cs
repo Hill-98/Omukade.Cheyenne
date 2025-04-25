@@ -14,6 +14,8 @@ namespace Omukade.Cheyenne.Matchmaking
         public GameplayType gameplayType { get; init; }
         public GameMode format { get; init; }
 
+        private Dictionary<string, string> lastMatchPlayers = new Dictionary<string, string>();
+
         public static uint GetFormatKey(GameplayType gameplayType, GameMode format)
         {
             return unchecked((uint)gameplayType << 0xffff | (uint)format);
@@ -36,12 +38,43 @@ namespace Omukade.Cheyenne.Matchmaking
 
             enqueuedPlayers.Enqueue(playerMetadata);
 
-            if (enqueuedPlayers.Count >= 2)
+            if (enqueuedPlayers.Count >= 2 && !TryMatchPlayers(false))
             {
-                PlayerMetadata playerMetadata1 = enqueuedPlayers.Dequeue();
-                PlayerMetadata playerMetadata2 = enqueuedPlayers.Dequeue();
-                MatchMakingCompleteCallback(this, playerMetadata1, playerMetadata2);
+                RemovePlayerFromMatchmaking(playerMetadata);
+                Task.Run(() => {
+                    int waitSecond = Program.config.DebugWaitMatchSameOpponent ?? 0;
+                    if (waitSecond > 0)
+                    {
+                        Task.Delay(1000 * waitSecond).Wait();
+                    }
+                    enqueuedPlayers.Enqueue(playerMetadata);
+                    TryMatchPlayers(true);
+                });
             }
+        }
+
+        private bool TryMatchPlayers(bool force = false)
+        {
+            if (enqueuedPlayers.Count < 2)
+            {
+                return false;
+            }
+            PlayerMetadata playerMetadata = enqueuedPlayers.Dequeue();
+            PlayerMetadata playerMetadata2 = enqueuedPlayers.Dequeue();
+            string p1Id = playerMetadata.PlayerId ?? "x";
+            string p2Id = playerMetadata2.PlayerId ?? "x";
+            string player1LastOpponent;
+            lastMatchPlayers.TryGetValue(p1Id, out player1LastOpponent);
+            if (force || player1LastOpponent != p2Id)
+            {
+                lastMatchPlayers[p1Id] = p2Id;
+                lastMatchPlayers[p2Id] = p2Id;
+                MatchMakingCompleteCallback(this, playerMetadata, playerMetadata2);
+                return true;
+            }
+            enqueuedPlayers.Enqueue(playerMetadata);
+            enqueuedPlayers.Enqueue(playerMetadata2);
+            return false;
         }
 
         /// <inheritdoc/>
