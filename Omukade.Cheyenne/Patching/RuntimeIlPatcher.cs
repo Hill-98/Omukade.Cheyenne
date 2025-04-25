@@ -511,4 +511,20 @@ namespace Omukade.Cheyenne.Patching
 
         public static bool IsQuitOperation(OperationType operationType) => operationType == OperationType.Quit || operationType == OperationType.TimeoutForceQuit;
     }
+
+    [HarmonyPatch(typeof(StringConditional), "StringCompare")]
+    public static class StringConditional_StringCompare_Fix_BallGuy
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch]
+        private static bool Prefix(StringConditional.ConditionalType type, string value1, string value2, ref bool __result)
+        {
+            if (value1 == "Air Balloon" && value2 == "Ball")
+            {
+                __result = false;
+                return false;
+            }
+            return true;
+        }
+    }
 }
