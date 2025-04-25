@@ -336,7 +336,7 @@ namespace Omukade.Cheyenne.Patching
         [HarmonyPatch]
         static void Postfix(MatchOperation __instance)
         {
-            __instance.settings.ContractResolver = resolver;
+			SerializeResolver.settings.ContractResolver = UseWhitelistedResolverMatchOperation.resolver;
         }
     }
 
@@ -352,7 +352,7 @@ namespace Omukade.Cheyenne.Patching
         [HarmonyPatch]
         static void Postfix(MatchBoard __instance)
         {
-            __instance.settings.ContractResolver = resolver;
+            SerializeResolver.settings.ContractResolver = UseWhitelistedResolverMatchBoard.resolver;
         }
     }
 

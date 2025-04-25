@@ -50,11 +50,12 @@
   <ItemGroup>
     <PackageReference Include="Lib.Harmony" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Omukade.AutoPAR" Version="1.0.9" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="Spectre.Console" Version="0.45.0" />
-	<PackageReference Include="Omukade.AutoPAR.BuildPipeline.Rainier" Version="1.0.9.1" />
-    <PackageReference Include="Omukade.RainierCardDefinitionFetcher" Version="1.0.18" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Omukade.ProcedualAssemblyRewriter\Omukade.AutoPAR\Omukade.AutoPAR.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -33,6 +33,12 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "ban-players-file")]
         public string BanPlayersFile = "ban-players.txt";
 
+        [JsonProperty(PropertyName = "record-player-data-directory")]
+        public string RecordPlayerDataDirectory = Path.Combine(AutoPAR.Rainier.RainierSharedDataHelper.GetSharedDataDirectory(), "../omukade-player-data");
+
+        [JsonProperty(PropertyName = "player-name-prefix")]
+        public string PlayerNamePrefix = string.Empty;
+
         [JsonProperty(PropertyName = "ws-port")]
         public int HttpPort = 10850;
 
@@ -47,9 +53,6 @@ namespace Omukade.Cheyenne
 
         [JsonProperty(PropertyName = "disable-player-order-randomization")]
         public bool DisablePlayerOrderRandomization = false;
-
-        [JsonProperty(PropertyName = "enable-rule-changes-2023-patch")]
-        public bool EnableRuleChanges2023Patch = true;
 
         [JsonProperty(PropertyName = "discord-error-webhook-enable")]
         public bool EnableDiscordErrorWebhook = false;
@@ -86,10 +89,10 @@ namespace Omukade.Cheyenne
         public bool RunAsDaemon = false;
 
         [JsonProperty(PropertyName = "enable-game-timers")]
-        public bool EnableGameTimers = false;
+        public bool EnableGameTimers = true;
 
         [JsonProperty(PropertyName = "one-game-mode-match")]
-        public bool OneGameModeMatch = false;
+        public bool OneGameModeMatch = true;
 
         [JsonProperty(PropertyName = "debug-enable-deterministic-decklist-preperation")]
         public bool DebugEnableDeterministicDecklistPreperation = false;
@@ -99,5 +102,8 @@ namespace Omukade.Cheyenne
 
         [JsonProperty(PropertyName = "debug-game-timer-time")]
         public int? DebugGameTimerTime = null;
+
+        [JsonProperty(PropertyName = "debug-wait-match-same-opponent")]
+        public int? DebugWaitMatchSameOpponent = 15;
     }
 }

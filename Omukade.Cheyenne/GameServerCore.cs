@@ -33,6 +33,7 @@ using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
 using Omukade.Cheyenne.Encoding;
 using Omukade.Cheyenne.Matchmaking;
+using SharedLogicUtils.source.FeatureFlags;
 
 namespace Omukade.Cheyenne
 {
@@ -108,14 +109,17 @@ namespace Omukade.Cheyenne
 
             BasicMatchmakingSwimlane standardSwimlane = new(GameplayType.Casual, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane expandedSwimlane = new(GameplayType.Casual, GameMode.Expanded, SwimlaneCompletedMatchMakingCallback);
+            BasicMatchmakingSwimlane trainerTrialsSwimlane = new(GameplayType.Casual, GameMode.TrainerTrials, SwimlaneCompletedMatchMakingCallback);
             if (config.OneGameModeMatch)
             {
                 standardSwimlane = expandedSwimlane;
+                trainerTrialsSwimlane = expandedSwimlane;
             }
             MatchmakingSwimlanes = new(2)
             {
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Standard), standardSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Expanded), expandedSwimlane },
+                { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.TrainerTrials), trainerTrialsSwimlane },
             };
 
             BanPlayers.OnUpdate += BanPlayers_OnUpdate;
@@ -135,7 +139,7 @@ namespace Omukade.Cheyenne
 
         private void SwimlaneCompletedMatchMakingCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2)
         {
-            this.StartGameBetweenTwoPlayers(player1, player2);
+            this.StartGameBetweenTwoPlayers(player1, player2, null);
         }
 
         public static void PatchRainier()
@@ -259,7 +263,7 @@ namespace Omukade.Cheyenne
         {
             if (player.CurrentGame == null)
             {
-                throw new InvalidOperationException("Cannot process received game message; no gamestate associated with user.");
+                throw new InvalidOperationException("Cannot process received game message; no gamestate associated with user.");    
             }
             if (gm.message == null)
             {
@@ -276,19 +280,20 @@ namespace Omukade.Cheyenne
             GameStateOmukade currentGame = (GameStateOmukade) player.CurrentGame;
             PlayerMetadata? opponentPlayerData = currentGame.player1metadata?.PlayerId == player.PlayerId ? currentGame.player2metadata : currentGame.player1metadata;
 
-            if(smg.messageType is MessageType.ChangeCoinState or MessageType.ChangeDeckOrder)
+            if (smg.messageType is MessageType.ChangeCoinState or MessageType.ChangeDeckOrder)
             {
                 throw new InvalidOperationException($"Player {player.PlayerDisplayName ?? "[null]"} sent the single-player-only cheat operation {smg.messageType}.");
             }
 
             switch (smg.messageType)
             {
+                case MessageType.UpdatePlayerCustomizations:
                 case MessageType.MatchOperation:
                 case MessageType.MatchInput:
                 case MessageType.MatchInputUpdate:
-                // case MessageType.ChangeCoinState:
-                // case MessageType.ChangeDeckOrder:
-                    OfflineAdapter.ReceiveOperation(player.PlayerId, currentGame, smg);
+                case MessageType.ChangeCoinState:
+                case MessageType.ChangeDeckOrder:
+                    OfflineAdapter.ReceiveOperation(smg.accountID, currentGame, smg);
                     break;
                 case MessageType.SendEmote:
                     if (opponentPlayerData?.MuteAvatarEmote == true)
@@ -311,16 +316,17 @@ namespace Omukade.Cheyenne
                     }
                     break;
                 case MessageType.MatchReadyTimeOut:
-                    // concede this player
-                    ForcePlayerToQuit(player);
+                    if (opponentPlayerData != null)
+                    {
+                        ForcePlayerToQuit(opponentPlayerData);
+                    }
                     break;
                 case MessageType.OpponentMatchTimeOut:
                 case MessageType.OpponentOperationTimeOut:
                     // concede the opponent
-                    PlayerMetadata? opponentPlayerData = currentGame.player1metadata?.PlayerId == player.PlayerId ? currentGame.player2metadata : currentGame.player1metadata;
                     if (opponentPlayerData != null)
                     {
-                        ForcePlayerToQuit(player);
+                        ForcePlayerToQuit(opponentPlayerData);
                     }
                     else
                     {
@@ -439,7 +445,7 @@ namespace Omukade.Cheyenne
                     throw new ArgumentException("Received " + nameof(AcceptDirectMatch) + " with null accountId");
                 }
 
-                EnsurePlayerDataForMatch(player);
+                FriendDirectMatchContext context = JsonConvert.DeserializeObject<FriendDirectMatchContext>(System.Text.Encoding.UTF8.GetString(adm.invitation.sharedContext));
 
                 if (!UserMetadata.TryGetValue(adm.invitation.sourceAccountId, out PlayerMetadata initiatingPlayerMetadata))
                 {
@@ -461,7 +467,7 @@ namespace Omukade.Cheyenne
                 player.DirectMatchCurrentlyReceivingFrom = default;
 
                 // TODO: send the matchaccepted message to the initiating player
-                StartGameBetweenTwoPlayers(initiatingPlayerMetadata, player);
+                StartGameBetweenTwoPlayers(initiatingPlayerMetadata, player, context);
             }
         }
 
@@ -551,15 +557,29 @@ namespace Omukade.Cheyenne
             return deck;
         }
 
-        internal string StartGameBetweenTwoPlayers(PlayerMetadata playerOneMetadata, PlayerMetadata playerTwoMetadata)
+        internal string StartGameBetweenTwoPlayers(PlayerMetadata playerOneMetadata, PlayerMetadata playerTwoMetadata, MatchmakingContext? context)
         {
-            if(config.DebugFixedRngSeed)
+            context = context ?? new MatchmakingContext()
+            {
+                gameMode = GameMode.Standard,
+                gameplayType = GameplayType.Friend
+            };
+            context.useMatchTimer = context.useMatchTimer && config.EnableGameTimers;
+            context.useOperationTimer = context.useOperationTimer && config.EnableGameTimers;
+            if (config.DebugGameTimerTime != null)
+            {
+                context.matchTime = (float)config.DebugGameTimerTime;
+            }
+
+            if (config.DebugFixedRngSeed)
             {
                 Patching.MatchOperationGetRandomSeedIsDeterministic.ResetRng();
             }
 
-            GameStateOmukade gameState = new GameStateOmukade(parentServerInstance: this)
+            GameStateOmukade gameState = new GameStateOmukade(this)
             {
+                gameMode = context.gameMode,
+                gameplayType = context.gameplayType,
                 matchId = Guid.NewGuid().ToString(),
             };
 
@@ -579,7 +599,7 @@ namespace Omukade.Cheyenne
             gameState.playerInfos[PLAYER_ONE].playerName = playerOneMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_ONE].playerID = playerOneMetadata.PlayerId;
             gameState.playerInfos[PLAYER_ONE].sentPlayerInfo = true;
-            gameState.playerInfos[PLAYER_ONE].settings = new PlayerSettings { gameMode = GameMode.Standard, gameplayType = GameplayType.Friend, useAutoSelect = false, useMatchTimer = config.EnableGameTimers, useOperationTimer = config.EnableGameTimers, matchMode = MatchMode.Standard, matchTime = config.DebugGameTimerTime ?? 1500 };
+            gameState.playerInfos[PLAYER_ONE].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_ONE].settings.name = playerOneMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_ONE].settings.outfit = playerOneMetadata.PlayerOutfit;
             DeckInfo.ImportMetadata(ref gameState.playerInfos[PLAYER_ONE].settings.deckInfo, playerOneMetadata.CurrentDeck!.Value.metadata, e => throw new Exception($"Error parsing deck for {playerOneMetadata.PlayerDisplayName}: {e}"));
@@ -589,7 +609,7 @@ namespace Omukade.Cheyenne
             gameState.playerInfos[PLAYER_TWO].playerName = playerTwoMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_TWO].playerID = playerTwoMetadata.PlayerId;
             gameState.playerInfos[PLAYER_TWO].sentPlayerInfo = true;
-            gameState.playerInfos[PLAYER_TWO].settings = new PlayerSettings { gameMode = GameMode.Standard, gameplayType = GameplayType.Friend, useAutoSelect = false, useMatchTimer = config.EnableGameTimers, useOperationTimer = config.EnableGameTimers, matchMode = MatchMode.Standard, matchTime = config.DebugGameTimerTime ?? 1500 };
+            gameState.playerInfos[PLAYER_TWO].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_TWO].settings.outfit = playerTwoMetadata.PlayerOutfit;
             DeckInfo.ImportMetadata(ref gameState.playerInfos[PLAYER_TWO].settings.deckInfo, playerTwoMetadata.CurrentDeck!.Value.metadata, e => throw new Exception($"Error parsing deck for {playerTwoMetadata.PlayerDisplayName}: {e}"));
             gameState.playerInfos[PLAYER_TWO].settings.name = playerTwoMetadata.PlayerDisplayName;
@@ -612,14 +632,33 @@ namespace Omukade.Cheyenne
             CardCache.Add(allCardData);
             byte[] prebakedCardData = MessageExtensions.PrecompressObject(allCardData);
 
-            MatchOperation bootstrapOperation = new MatchOperation(gameState.matchId, gameMode: GameMode.Standard, GameplayType.Offline,
-            gameState.playerInfos[PLAYER_ONE].playerID, gameState.playerInfos[PLAYER_ONE].playerName,
-            deckListP1.ToArray(), p1MatchTime: gameState.playerInfos[PLAYER_ONE].settings.matchTime, p1UseMatchTimer: gameState.playerInfos[PLAYER_ONE].settings.useMatchTimer, p1UseOperationTimer: gameState.playerInfos[PLAYER_ONE].settings.useOperationTimer, gameState.playerInfos[PLAYER_ONE].settings.useAutoSelect,
+            MatchOperation bootstrapOperation = new MatchOperation(
+                matchID: gameState.matchId,
+                gameMode: context.gameMode,
+                gameplayType: context.gameplayType,
 
-            gameState.playerInfos[PLAYER_TWO].playerID, gameState.playerInfos[PLAYER_TWO].playerName,
-            deckListP2.ToArray(), p2MatchTime: gameState.playerInfos[PLAYER_TWO].settings.matchTime, p2UseMatchTimer: gameState.playerInfos[PLAYER_TWO].settings.useMatchTimer, p2UseOperationTimer: gameState.playerInfos[PLAYER_TWO].settings.useOperationTimer, gameState.playerInfos[PLAYER_TWO].settings.useAutoSelect,
-            MatchMode.Standard, prizeCount: config.DebugPrizesPerPlayer ?? 6, debug: gameState.CanUseDebug,
-            featureFlags: FeatureFlags);
+                p1ID: gameState.playerInfos[PLAYER_ONE].playerID,
+                p1Username: gameState.playerInfos[PLAYER_ONE].playerName,
+                p1DeckList: deckListP1.ToArray(),
+                p1MatchTime: gameState.playerInfos[PLAYER_ONE].settings.matchTime,
+                p1UseMatchTimer: gameState.playerInfos[PLAYER_ONE].settings.useMatchTimer,
+                p1UseOperationTimer: gameState.playerInfos[PLAYER_ONE].settings.useOperationTimer,
+                p1UseAutoSelect: gameState.playerInfos[PLAYER_ONE].settings.useAutoSelect,
+
+                p2ID: gameState.playerInfos[PLAYER_TWO].playerID,
+                p2Username: gameState.playerInfos[PLAYER_TWO].playerName,
+                p2DeckList: deckListP2.ToArray(),
+                p2MatchTime: gameState.playerInfos[PLAYER_TWO].settings.matchTime,
+                p2UseMatchTimer: gameState.playerInfos[PLAYER_TWO].settings.useMatchTimer,
+                p2UseOperationTimer: gameState.playerInfos[PLAYER_TWO].settings.useOperationTimer,
+                p2UseAutoSelect: gameState.playerInfos[PLAYER_TWO].settings.useAutoSelect,
+
+                cardCacheVersion: DateBasedVersion.DefaultVersion,
+                matchMode: MatchMode.Standard,
+                prizeCount: config.DebugPrizesPerPlayer ?? 6,
+                debug: gameState.CanUseDebug,
+                featureFlags: FeatureFlags
+            );
 
             bootstrapOperation.QueuePlayerOperation();
             bootstrapOperation.Handle();
@@ -638,9 +677,18 @@ namespace Omukade.Cheyenne
                     cardDataBuildDate = "todo",
                     matchId = gameState.matchId,
                     players = gameState.playerInfos.Select(
-                    pi => new PlayerDetails(playerId: pi.playerID, playerEntityId: gameState.GetPlayerEntityId(pi.playerID), playerName: pi.playerName, pi.playerExp, pi.settings.deckInfo, pi.settings.outfit)).ToArray(),
+                        pi => new PlayerDetails(
+                                pi.playerID,
+                                gameState.GetPlayerEntityId(pi.playerID),
+                                string.IsNullOrEmpty(Program.config.PlayerNamePrefix) ? pi.playerName : $"[{Program.config.PlayerNamePrefix}] {pi.playerName}",
+                                pi.playerExp,
+                                pi.settings.deckInfo,
+                                pi.settings.outfit,
+                                0
+                            )
+                        ).ToArray(),
                     readyUpTimeout = 60,
-                    offlineMatch = false,
+                    offlineMatch = true,
                     useAI = false,
                     clearCache = true,
                     featureSet = FeatureFlags
