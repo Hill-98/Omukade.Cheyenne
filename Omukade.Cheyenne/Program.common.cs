@@ -18,16 +18,16 @@
 
 using ClientNetworking;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Omukade.AutoPAR;
 using Omukade.Cheyenne.Encoding;
 using Omukade.Cheyenne.Miniserver.Controllers;
-using Omukade.Tools.RainierCardDefinitionFetcher.Model;
 using Spectre.Console;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -61,7 +61,9 @@ namespace Omukade.Cheyenne
             StartWsProcessorThread();
             app.Start();
 
-            if(config.RunAsDaemon)
+            Console.WriteLine("Http port: " + config.HttpPort.ToString());
+
+            if (config.RunAsDaemon)
             {
                 Console.CancelKeyPress += Console_CancelKeyPress;
                 app.WaitForShutdown();
@@ -79,30 +81,33 @@ namespace Omukade.Cheyenne
 
         private static void OnFirstChanceException(object? sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
         {
-            // Don't report certain types of non-server exceptions (eg, SocketExceptions or BadHttpRequestExceptions caused by people probing the server)
-            Type exceptionType = e.Exception.GetType();
-            Exception eError = e.Exception;
-#pragma warning disable CS0618 // Type or member is obsolete
-            if (eError is Microsoft.AspNetCore.Server.Kestrel.Core.BadHttpRequestException || eError is SocketException || eError is ConnectionResetException || (eError is WebSocketException wse && wse.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely) )
+            Type type = e.Exception.GetType();
+            Exception exception = e.Exception;
+            if (!(exception is BadHttpRequestException) && !(exception is ConnectionAbortedException) && !(exception is SocketException) && !(exception is ConnectionResetException))
             {
-                return;
+                WebSocketException ex = exception as WebSocketException;
+                if (ex == null || ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
+                {
+                    StackTrace stackTrace = new StackTrace(e.Exception);
+                    StackFrame[] frames = stackTrace.GetFrames();
+                    if (frames.Any(delegate (StackFrame frame)
+                    {
+                        MethodBase method = frame.GetMethod();
+                        return ((method != null) ? method.Name : null) == "OnFirstChanceException";
+                    }))
+                    {
+                        Console.WriteLine("An exception has occured in OnFirstChanceException; to prevent further issues, only basic info is available for this exception.");
+                        Console.WriteLine(e.GetType().FullName + " : " + e.Exception.Message);
+                        if (e.Exception.StackTrace != null)
+                        {
+                            Console.WriteLine(e.Exception.StackTrace);
+                        }
+                        return;
+                    }
+                    AnsiConsole.WriteException(e.Exception, 0);
+                    return;
+                }
             }
-#pragma warning restore CS0618 // Type or member is obsolete
-
-            StackTrace st = new StackTrace(e.Exception);
-            StackFrame[] frames = st.GetFrames();
-
-            // Ensure the exception does not involve this method; if it does, an infinite recursion is extremely likely!
-            if (frames.Any(frame => frame.GetMethod()?.Name == nameof(OnFirstChanceException)))
-            {
-                Console.WriteLine("An exception has occured in OnFirstChanceException; to prevent further issues, only basic info is available for this exception.");
-                Console.WriteLine($"{e.GetType().FullName} : {e.Exception.Message}");
-                if(e.Exception.StackTrace != null) Console.WriteLine(e.Exception.StackTrace);
-                return;
-            }
-
-            // I don't feel like writing this out right now; just use the "basic" logger
-            Spectre.Console.AnsiConsole.WriteException(e.Exception);
         }
 
         private static void CheckForCardUpdates()
@@ -114,61 +119,6 @@ namespace Omukade.Cheyenne
             }
 
             Console.WriteLine("Attempting to check for card + rule updates...");
-
-            string secretFname;
-            if(File.Exists("secrets.json"))
-            {
-                secretFname = "secrets.json";
-            }
-            else if(!string.IsNullOrEmpty(config.CardDefinitionFetcherPath) && File.Exists(Path.Join(config.CardDefinitionFetcherPath, "secrets.json")))
-            {
-                // For legacy installations still using CardDefinitionFetcherPath, attempt to use that secrets file.
-                secretFname = Path.Join(config.CardDefinitionFetcherPath, "secrets.json");
-
-                Logging.WriteWarning("Check for Card Updates: secrets.json not found, but CardDefinitionFetcherPath is set and has secrets.json; using that configuration.");
-                Logging.WriteWarning("This is a deprecated setup; secrets.json should be in the server's working directory.");
-            }
-            else
-            {
-                Console.Error.WriteLine("secrets.json not found; cannot check for updates.");
-                if (!config.CardDefinitionContinueOnError)
-                {
-                    Environment.Exit(1);
-                }
-                return;
-            }
-
-            SecretsConfig secrets = JsonConvert.DeserializeObject<SecretsConfig>(File.ReadAllText(secretFname));
-
-            if(string.IsNullOrEmpty(secrets.username) || string.IsNullOrEmpty(secrets.password))
-            {
-                Console.Error.WriteLine("Username and/or password not specified in secrets; cannot check for updates.");
-                if (!config.CardDefinitionContinueOnError)
-                {
-                    Environment.Exit(1);
-                }
-                return;
-            }
-
-            try
-            {
-                IClient client = Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.PrepareClient(secrets);
-                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchAndSaveAllGamemodeData(client);
-                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchAndSaveCardDefinitions(client);
-                Omukade.Tools.RainierCardDefinitionFetcher.Fetchers.FetchFeatureFlags(client);
-                client.DisconnectAsync().Wait();
-            }
-            catch(Exception e)
-            {
-                ReportUserError("Exception while fetching card updates", e);
-
-                if (config.CardDefinitionContinueOnError)
-                {
-                    return;
-                }
-
-                throw;
-            }
         }
 
         static internal void InitAutoPar()
@@ -237,7 +187,6 @@ namespace Omukade.Cheyenne
 
             Console.WriteLine("Injecting AutoPAR...");
             AssemblyLoadInterceptor.ParCore.CecilProcessors.Add(Omukade.AutoPAR.Rainier.RainierSpecificPatches.MakeGameStateCloneVirtual);
-            AssemblyLoadInterceptor.ParCore.CecilProcessors.Add(Omukade.AutoPAR.Rainier.RainierSpecificPatches.AddJsonIgnoreAttribute_SetKnockoutAtFullHealthByDamageMetaData);
             AssemblyLoadInterceptor.Initialize(rainierDirectory);
         }
 
