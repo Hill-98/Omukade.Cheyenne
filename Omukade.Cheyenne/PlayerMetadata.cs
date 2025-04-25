@@ -38,6 +38,8 @@ namespace Omukade.Cheyenne
         public string? PlayerDisplayName;
         public string? PlayerId;
 
+        public bool MuteAvatarEmote = false;
+
         public GameState? CurrentGame;
 
         // We don't really care what the client's current region is. However, during matchmaking,

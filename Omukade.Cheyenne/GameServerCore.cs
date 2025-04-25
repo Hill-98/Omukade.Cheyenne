@@ -271,6 +271,7 @@ namespace Omukade.Cheyenne
             }
 
             GameStateOmukade currentGame = (GameStateOmukade) player.CurrentGame;
+            PlayerMetadata? opponentPlayerData = currentGame.player1metadata?.PlayerId == player.PlayerId ? currentGame.player2metadata : currentGame.player1metadata;
 
             if(smg.messageType is MessageType.ChangeCoinState or MessageType.ChangeDeckOrder)
             {
@@ -287,6 +288,10 @@ namespace Omukade.Cheyenne
                     OfflineAdapter.ReceiveOperation(player.PlayerId, currentGame, smg);
                     break;
                 case MessageType.SendEmote:
+                    if (opponentPlayerData?.MuteAvatarEmote == true)
+                    {
+                        break;
+                    }
                     string? rawPayload = smg.compressedValue == null ? null : Compression.Unzip(smg.compressedValue);
                     if (rawPayload == null) throw new ArgumentNullException("Emote payload is null");
 
@@ -318,6 +323,10 @@ namespace Omukade.Cheyenne
                     {
                         throw new InvalidOperationException($"Player {player.PlayerDisplayName ?? "[null]"} tried to timeout their opponent via {smg.messageType}, but the opponent is null.");
                     }
+                    break;
+                case MessageType.MuteMyAvatarEmote:
+                case MessageType.MuteOpponentAvatarEmote:
+                    player.MuteAvatarEmote = !player.MuteAvatarEmote;
                     break;
                 default:
                     throw new NotImplementedException($"Unsupported Game Message type received from client :: {smg.messageType}");
