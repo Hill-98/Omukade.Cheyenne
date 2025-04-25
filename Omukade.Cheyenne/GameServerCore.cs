@@ -785,7 +785,9 @@ namespace Omukade.Cheyenne
                     throw new ArgumentException($"Cannot fetch card data for card that doesn't exist - {cardname}", nameof(cardsToFetch));
                 }
                 string cardDataContents = File.ReadAllText(cardDataFilename);
-                return JsonConvert.DeserializeObject<CardSource>(cardDataContents, DeserializeResolver.settings)!;
+                CardSource cardSource = JsonConvert.DeserializeObject<CardSource>(cardDataContents, DeserializeResolver.settings)!;
+                CardSourcePatchs.Patch(cardSource);
+                return cardSource;
             })
             .ToList();
         }
