@@ -31,6 +31,7 @@ using Omukade.Cheyenne.Patching;
 using RainierClientSDK;
 using RainierClientSDK.source.Player;
 using SharedLogicUtils.DataTypes;
+using SharedLogicUtils.source.FeatureFlags;
 using SharedLogicUtils.source.Services.Query.Contexts;
 using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
@@ -75,6 +76,9 @@ namespace Omukade.Cheyenne
 
         public ConfigSettings config { get; init; }
         public event Action<string, Exception?>? ErrorHandler;
+
+        internal PlayerList? AllowPlayerList = null;
+        internal PlayerList BanPlayerList = new PlayerList(Program.config.BanPlayersFile);
 
         internal Dictionary<string, PlayerMetadata> UserMetadata = new Dictionary<string, PlayerMetadata>(2);
 
@@ -124,7 +128,11 @@ namespace Omukade.Cheyenne
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.TrainerTrials), trainerTrialsSwimlane },
             };
 
-            BanPlayers.OnUpdate += BanPlayers_OnUpdate;
+            if (File.Exists(Program.config.AllowPlayersFile))
+            {
+                AllowPlayerList = new PlayerList(Program.config.AllowPlayersFile);
+            }
+            BanPlayerList.OnUpdate += BanPlayers_OnUpdate;
         }
 
         private void BanPlayers_OnUpdate(object? sender, EventArgs e)
@@ -132,7 +140,7 @@ namespace Omukade.Cheyenne
             foreach (var item in UserMetadata)
             {
                 var player = item.Value;
-                if (BanPlayers.IsBan(player.PlayerDisplayName))
+                if (BanPlayerList.Contains(player.PlayerDisplayName))
                 {
                     ForcePlayerToQuit(player);
                 }
@@ -266,7 +274,7 @@ namespace Omukade.Cheyenne
             if (player.CurrentGame == null)
             {
 #if DEBUG
-                throw new InvalidOperationException("Cannot process received game message; no gamestate associated with user.");    
+                throw new InvalidOperationException("Cannot process received game message; no gamestate associated with user.");
 #else
                 return;
 #endif
@@ -365,6 +373,18 @@ namespace Omukade.Cheyenne
                         ActiveGamesById.Remove(currentGame.matchId);
                     }
                 }
+                if (!string.IsNullOrEmpty(Program.config.ReportApiUrl))
+                {
+                    try
+                    {
+                        string body = JsonConvert.SerializeObject(currentGame, SerializeResolver.replayAuto);
+                        HttpClient client = new HttpClient();
+                        HttpResponseMessage response = await client.PostAsync(Program.config.ReportApiUrl, new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
             }
         }
 
@@ -380,7 +400,7 @@ namespace Omukade.Cheyenne
                     throw new ArgumentNullException("Tried to begin matchmaking with a null " + nameof(MatchmakingContext));
                 }
 
-                if (BanPlayers.IsBan(player.PlayerDisplayName))
+                if ((AllowPlayerList != null && !AllowPlayerList.Contains(player.PlayerDisplayName)) || BanPlayerList.Contains(player.PlayerDisplayName))
                 {
                     SendPacketToClient(player, new MatchmakingCancelled(bm.txid));
                     return;

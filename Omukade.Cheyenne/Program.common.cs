@@ -55,7 +55,6 @@ namespace Omukade.Cheyenne
 
             CheckForCardUpdates();
             Init();
-            BanPlayers.Initialization();
 
             app = PrepareWsServer();
             StartWsProcessorThread();

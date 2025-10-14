@@ -30,14 +30,17 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "carddata-directory")]
         public string CardDataDirectory = Path.Combine(AutoPAR.Rainier.RainierSharedDataHelper.GetSharedDataDirectory(), "PTCGL-CardDefinitions");
 
+        [JsonProperty(PropertyName = "allow-players-file")]
+        public string AllowPlayersFile = "allow-players.txt";
+
         [JsonProperty(PropertyName = "ban-players-file")]
         public string BanPlayersFile = "ban-players.txt";
 
-        [JsonProperty(PropertyName = "record-player-data-directory")]
-        public string RecordPlayerDataDirectory = Path.Combine(AutoPAR.Rainier.RainierSharedDataHelper.GetSharedDataDirectory(), "../omukade-player-data");
-
         [JsonProperty(PropertyName = "player-name-prefix")]
         public string PlayerNamePrefix = string.Empty;
+
+        [JsonProperty(PropertyName = "report-api-url")]
+        public string ReportApiUrl = string.Empty;
 
         [JsonProperty(PropertyName = "ws-port")]
         public int HttpPort = 10850;
