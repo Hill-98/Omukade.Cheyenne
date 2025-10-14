@@ -16,24 +16,26 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **************************************************************************/
 
-using MatchLogic;
-using Newtonsoft.Json;
-using Omukade.Cheyenne.CustomMessages;
-using Omukade.Cheyenne.Model;
-using Omukade.Cheyenne.Patching;
 using ClientNetworking.Models;
 using ClientNetworking.Models.GameServer;
 using ClientNetworking.Models.Matchmaking;
 using ClientNetworking.Models.Query;
+using MatchLogic;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using Omukade.Cheyenne.CustomMessages;
+using Omukade.Cheyenne.Encoding;
+using Omukade.Cheyenne.Matchmaking;
+using Omukade.Cheyenne.Model;
+using Omukade.Cheyenne.Patching;
 using RainierClientSDK;
 using RainierClientSDK.source.Player;
 using SharedLogicUtils.DataTypes;
 using SharedLogicUtils.source.Services.Query.Contexts;
 using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
-using Omukade.Cheyenne.Encoding;
-using Omukade.Cheyenne.Matchmaking;
-using SharedLogicUtils.source.FeatureFlags;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 namespace Omukade.Cheyenne
 {
@@ -259,22 +261,34 @@ namespace Omukade.Cheyenne
             UserMetadata[dataForConnection.PlayerId] = dataForConnection;
         }
 
-        void HandleRainierGameMessage(PlayerMetadata player, GameMessage gm)
+        async Task HandleRainierGameMessage(PlayerMetadata player, GameMessage gm)
         {
             if (player.CurrentGame == null)
             {
+#if DEBUG
                 throw new InvalidOperationException("Cannot process received game message; no gamestate associated with user.");    
+#else
+                return;
+#endif
             }
             if (gm.message == null)
             {
+#if DEBUG
                 throw new ArgumentNullException("GameMessage payload is null");
+#else
+                return;
+#endif
             }
 
             // OfflineAdapter::ReceiveOperation
             ServerMessage? smg = FasterJson.FastDeserializeFromBytes<ServerMessage>(gm.message);
             if (smg == null)
             {
+#if DEBUG
                 throw new ArgumentNullException("GameMessage's SMG is null");
+#else
+                return;
+#endif
             }
 
             GameStateOmukade currentGame = (GameStateOmukade) player.CurrentGame;

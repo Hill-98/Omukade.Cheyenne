@@ -164,7 +164,7 @@ namespace Omukade.Cheyenne.Miniserver.Controllers
             }
             else if(format == SerializationFormat.FlatBuffers)
             {
-                ReusableBuffer rub = CodecUtil.Flatbuffers.Serialize(payload);
+                ReusableBuffer rub = CodecUtil.FlatBuffers.Serialize(payload);
                 rawMessage = new StompFrameWithData
                 {
                     frameHeaders = new StompFrame
