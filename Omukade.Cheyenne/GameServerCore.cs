@@ -132,19 +132,6 @@ namespace Omukade.Cheyenne
             {
                 AllowPlayerList = new PlayerList(Program.config.AllowPlayersFile);
             }
-            BanPlayerList.OnUpdate += BanPlayers_OnUpdate;
-        }
-
-        private void BanPlayers_OnUpdate(object? sender, EventArgs e)
-        {
-            foreach (var item in UserMetadata)
-            {
-                var player = item.Value;
-                if (BanPlayerList.Contains(player.PlayerDisplayName))
-                {
-                    ForcePlayerToQuit(player);
-                }
-            }
         }
 
         private void SwimlaneCompletedMatchMakingCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2)
@@ -338,22 +325,8 @@ namespace Omukade.Cheyenne
                     }
                     break;
                 case MessageType.MatchReadyTimeOut:
-                    if (opponentPlayerData != null)
-                    {
-                        ForcePlayerToQuit(opponentPlayerData);
-                    }
-                    break;
                 case MessageType.OpponentMatchTimeOut:
                 case MessageType.OpponentOperationTimeOut:
-                    // concede the opponent
-                    if (opponentPlayerData != null)
-                    {
-                        ForcePlayerToQuit(opponentPlayerData);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Player {player.PlayerDisplayName ?? "[null]"} tried to timeout their opponent via {smg.messageType}, but the opponent is null.");
-                    }
                     break;
                 case MessageType.MuteMyAvatarEmote:
                 case MessageType.MuteOpponentAvatarEmote:
@@ -636,7 +609,7 @@ namespace Omukade.Cheyenne
             gameState.playerInfos[PLAYER_ONE].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_ONE].settings.name = playerOneMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_ONE].settings.outfit = playerOneMetadata.PlayerOutfit;
-            DeckInfo.ImportMetadata(ref gameState.playerInfos[PLAYER_ONE].settings.deckInfo, playerOneMetadata.CurrentDeck!.Value.metadata, e => throw new Exception($"Error parsing deck for {playerOneMetadata.PlayerDisplayName}: {e}"));
+            DeckInfo.ImportMetadata(gameState.playerInfos[PLAYER_ONE].settings.deckInfo, playerOneMetadata.CurrentDeck!.Value.metadata);
             gameState.playerInfos[PLAYER_ONE].settings.deckInfo.cards = new Dictionary<string, int>(playerOneMetadata.CurrentDeck.Value.items);
 
             gameState.player2metadata = playerTwoMetadata;
@@ -645,7 +618,7 @@ namespace Omukade.Cheyenne
             gameState.playerInfos[PLAYER_TWO].sentPlayerInfo = true;
             gameState.playerInfos[PLAYER_TWO].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_TWO].settings.outfit = playerTwoMetadata.PlayerOutfit;
-            DeckInfo.ImportMetadata(ref gameState.playerInfos[PLAYER_TWO].settings.deckInfo, playerTwoMetadata.CurrentDeck!.Value.metadata, e => throw new Exception($"Error parsing deck for {playerTwoMetadata.PlayerDisplayName}: {e}"));
+            DeckInfo.ImportMetadata(gameState.playerInfos[PLAYER_TWO].settings.deckInfo, playerTwoMetadata.CurrentDeck!.Value.metadata);
             gameState.playerInfos[PLAYER_TWO].settings.name = playerTwoMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_TWO].settings.deckInfo.cards = new Dictionary<string, int>(playerTwoMetadata.CurrentDeck.Value.items);
 
