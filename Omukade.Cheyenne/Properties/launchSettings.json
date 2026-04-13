@@ -2,8 +2,8 @@
   "profiles": {
     "Omukade.Cheyenne": {
       "commandName": "Project",
-      "workingDirectory": "bin\\Debug\\net6.0",
-      "applicationUrl": "https://localhost:1118;http://localhost:1119"
+      "workingDirectory": "bin\\Debug\\net8.0",
+      "applicationUrl": ""
     }
   }
 }

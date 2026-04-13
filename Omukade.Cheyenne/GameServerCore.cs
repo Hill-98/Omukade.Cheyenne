@@ -19,9 +19,7 @@
 using ClientNetworking.Models;
 using ClientNetworking.Models.GameServer;
 using ClientNetworking.Models.Matchmaking;
-using ClientNetworking.Models.Query;
 using MatchLogic;
-using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Omukade.Cheyenne.CustomMessages;
 using Omukade.Cheyenne.Encoding;
@@ -29,14 +27,11 @@ using Omukade.Cheyenne.Matchmaking;
 using Omukade.Cheyenne.Model;
 using Omukade.Cheyenne.Patching;
 using RainierClientSDK;
-using RainierClientSDK.source.Player;
-using SharedLogicUtils.DataTypes;
 using SharedLogicUtils.source.FeatureFlags;
 using SharedLogicUtils.source.Services.Query.Contexts;
 using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Omukade.Cheyenne
 {
@@ -578,11 +573,6 @@ namespace Omukade.Cheyenne
                 context.matchTime = (float)config.DebugGameTimerTime;
             }
 
-            if (config.DebugFixedRngSeed)
-            {
-                Patching.MatchOperationGetRandomSeedIsDeterministic.ResetRng();
-            }
-
             GameStateOmukade gameState = new GameStateOmukade(this)
             {
                 gameMode = context.gameMode,
@@ -680,8 +670,8 @@ namespace Omukade.Cheyenne
 
                 MatchCreated matchCreated = new MatchCreated()
                 {
-                    gameDataBuildDate = "todo",
-                    cardDataBuildDate = "todo",
+                    gameDataBuildDate = DateTime.Today.ToString("R"),
+                    cardDataBuildDate = DateTime.Today.ToString("R"),
                     matchId = gameState.matchId,
                     players = gameState.playerInfos.Select(
                         pi => new PlayerDetails(
@@ -763,25 +753,7 @@ namespace Omukade.Cheyenne
                     return true;
                 default:
                     MatchOperationResult mor = new MatchOperationResult(currentOperation, deltaIndex: currentOperation.lastSentDeltaIndex, isInputUpdate: isInputUpdate);
-                    byte[] precompressedMor = MessageExtensions.PrecompressObject(mor, compressionLevel: 9);
-
-                    /*bool gameOver = false;
-                    // IDK which one is the authoritative "game over", so just try them all. So far, all 3 have been tripped when a game is over.
-                    if(mor.actionModifications?.Any(a => a is EndGameModification) == true)
-                    {
-                        Console.WriteLine($"Game Over (by Contains EGM) - {currentOperation.matchID}");
-                        gameOver = true;
-                    }
-                    if(currentOperation.workingBoard.isGameOver)
-                    {
-                        Console.WriteLine($"Game Over (by isGameOver property) - {currentOperation.matchID}");
-                        gameOver = true;
-                    }
-                    if(currentOperation.workingBoard.IsGameOver())
-                    {
-                        Console.WriteLine($"Game Over (by IsGameOver method) - {currentOperation.matchID}");
-                        gameOver = true;
-                    }*/
+                    byte[] precompressedMor = MessageExtensions.PrecompressObject(mor, 9);
 
                     foreach (SharedSDKUtils.PlayerInfo currentPlayer in currentGameState.playerInfos)
                     {
@@ -833,7 +805,7 @@ namespace Omukade.Cheyenne
                     }
                 }
 
-                string setFolder = cardname.Split(new char[] { '_' }, 2)[0];
+                string setFolder = cardname.Split(['_'], 2)[0];
                 string cardDataFilename = Path.Combine(config.CardDataDirectory, setFolder, cardname + ".json");
                 if (!File.Exists(cardDataFilename))
                 {

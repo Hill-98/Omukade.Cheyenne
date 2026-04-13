@@ -193,13 +193,6 @@ namespace Omukade.Cheyenne
         {
             serverCore = new GameServerCore(config);
 
-            if(config.DebugFixedRngSeed)
-            {
-                Console.WriteLine("WARNING: The debug setting DebugFixedRngSeed is enabled; all games will use the same RNG seed.");
-                Console.WriteLine("This setting should be DISABLED IMMEDIATELY except for testing/debugging.");
-                Patching.MatchOperationGetRandomSeedIsDeterministic.InjectRngPatchAtAll = true;
-            }
-
             Console.WriteLine("Patching Rainier...");
             GameServerCore.PatchRainier();
 
