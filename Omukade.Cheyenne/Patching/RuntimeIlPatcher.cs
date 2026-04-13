@@ -18,106 +18,18 @@
 
 //#define BAKE_RNG
 
-using Google.FlatBuffers;
 using HarmonyLib;
-using ICSharpCode.SharpZipLib.GZip;
 using MatchLogic;
-using MatchLogic.Utils;
-using Newtonsoft.Json;
-using Omukade.Cheyenne.Encoding;
 using Omukade.Cheyenne.Model;
-using ClientNetworking.Models;
 using RainierClientSDK;
-using RainierClientSDK.source.OfflineMatch;
-using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
 using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
-using static MatchLogic.RainierServiceLogger;
 using LogLevel = MatchLogic.RainierServiceLogger.LogLevel;
 
 namespace Omukade.Cheyenne.Patching
 {
-    [HarmonyPatch(typeof(MatchOperation), nameof(MatchOperation.GetRandomSeed))]
-    public static class MatchOperationGetRandomSeedIsDeterministic
-    {
-        public const int RngSeed = 654654564;
-
-        /// <summary>
-        /// Controls if this patch is applied. This has no effect once Harmony has finished patching. Once patched, RNG baking can be controlled using <see cref="UseInjectedRng"/>.
-        /// Do not enable this patch unless needed (eg, testing), as there is minor performance impact from the extra method call.
-        /// </summary>
-        public static bool InjectRngPatchAtAll = false;
-
-        /// <summary>
-        /// If <see cref="InjectRngPatchAtAll"/> is set, RNG calls for games will be controlled using this patch instead of using the built-in RNG. The built-in RNG can be enabled/disabled at any time by toggling this field.
-        /// </summary>
-        public static bool UseInjectedRng = true;
-
-        public static Random Rng = new Random(RngSeed);
-
-        public static void ResetRng() => Rng = new Random(RngSeed);
-
-        static bool Prepare(MethodBase original) => InjectRngPatchAtAll;
-
-        [HarmonyPatch, HarmonyPrefix]
-        static bool Prefix(ref int __result)
-        {
-            if(!UseInjectedRng)
-            {
-                return true;
-            }
-
-            __result = Rng.Next();
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(MatchOperationRandomSeedGenerator), nameof(MatchOperationRandomSeedGenerator.GetRandomSeed))]
-    public static class MatchOperationRandomSeedGeneratorIsDeterministic
-    {
-        static bool Prepare(MethodBase original) => MatchOperationGetRandomSeedIsDeterministic.InjectRngPatchAtAll;
-
-        [HarmonyPatch]
-        [HarmonyPrefix]
-        static bool Prefix(ref int __result)
-        {
-            if (!MatchOperationGetRandomSeedIsDeterministic.UseInjectedRng)
-            {
-                return true;
-            }
-
-            __result = MatchOperationGetRandomSeedIsDeterministic.Rng.Next();
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(SystemRandomNumberGenerator))]
-    public static class SystemRandomNumberGeneratorIsDeterministic
-    {
-        static bool Prepare(MethodBase original) => MatchOperationGetRandomSeedIsDeterministic.InjectRngPatchAtAll;
-
-        [HarmonyPatch(MethodType.Constructor, typeof(int))]
-        [HarmonyPrefix]
-        static bool Prefix(ref Random ____random)
-        {
-            if (!MatchOperationGetRandomSeedIsDeterministic.UseInjectedRng)
-            {
-                return true;
-            }
-
-            ____random = MatchOperationGetRandomSeedIsDeterministic.Rng;
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(RainierServiceLogger), nameof(RainierServiceLogger.Log))]
     static class RainierServiceLoggerLogEverything
     {
@@ -158,7 +70,7 @@ namespace Omukade.Cheyenne.Patching
                 nameof(OfflineAdapter.ReceiveOperation),
                 nameof(OfflineAdapter.CreateOperation),
                 nameof(OfflineAdapter.ResolveOperation),
-                nameof(OfflineAdapter.LoadBoardState)
+                nameof(OfflineAdapter.LoadBoardState),
             }.Select(name => AccessTools.Method(typeof(OfflineAdapter), name));
 
         [HarmonyTranspiler]
@@ -219,32 +131,6 @@ namespace Omukade.Cheyenne.Patching
         }
     }
 
-/*  [HarmonyPatch(typeof(OfflineAdapter), nameof(OfflineAdapter.ReceiveOperation))]
-    static class ReceiveOperationUsesCopyStateVirtual
-    {
-        [HarmonyTranspiler]
-        [HarmonyPatch]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            MethodInfo COPY_STATE = AccessTools.Method(typeof(GameState), nameof(GameState.CopyState));
-            MethodInfo COPY_STATE_GSO = AccessTools.Method(typeof(GameStateOmukade), nameof(GameState.CopyState));
-
-            foreach (CodeInstruction instruction in instructions)
-            {
-                if (instruction.Calls(COPY_STATE))
-                {
-                    // Replace original copystate with callvirt so derived copystates are used.
-                    // I have no idea why callvirt isn't resolving the overriden CopyState in GameStateOmukade.
-                    yield return new CodeInstruction(OpCodes.Callvirt, COPY_STATE_GSO);
-                }
-                else
-                {
-                    yield return instruction;
-                }
-            }
-        }
-    }*/
-
     [HarmonyPatch(typeof(GameState), nameof(GameState.CopyState))]
     static class GameStateCopyStateCrashes
     {
@@ -252,124 +138,6 @@ namespace Omukade.Cheyenne.Patching
         [HarmonyPrefix]
         [HarmonyPatch]
         static void Prefix() => throw new InvalidOperationException("Omukade: Use of GameState.CopyState is not valid and causes information loss. Ensure the caller of this method uses GameStateOmukade instances and isn't creating its own GameState objects.");
-    }
-
-    [HarmonyPatch(typeof(OfflineAdapter), nameof(OfflineAdapter.ReceiveOperation))]
-    public static class ReceiveOperationShowsIlOffsetsInErrors
-    {
-        [HarmonyTranspiler]
-        [HarmonyPatch]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            MethodInfo EXCEPTION_GET_STACKTRACE = AccessTools.PropertyGetter(typeof(Exception), nameof(Exception.StackTrace));
-            MethodInfo ENCHANCED_STACKTRACE = AccessTools.Method(typeof(ReceiveOperationShowsIlOffsetsInErrors), nameof(ReceiveOperationShowsIlOffsetsInErrors.GetStackTraceWithIlOffsets));
-
-            foreach (CodeInstruction instruction in instructions)
-            {
-                if(instruction.Calls(EXCEPTION_GET_STACKTRACE))
-                {
-                    // replace stacktrace call with out enchanced stackframe method that returns IL offsets
-                    yield return new CodeInstruction(OpCodes.Call, ENCHANCED_STACKTRACE);
-                }
-                else
-                {
-                    yield return instruction;
-                }
-            }
-        }
-
-        public static string GetStackTraceWithIlOffsets(Exception ex)
-        {
-            System.Diagnostics.StackTrace st = new System.Diagnostics.StackTrace(ex);
-            StringBuilder sb = new StringBuilder();
-            PrepareStacktraceString(sb, st);
-            string preparedStacktrace = sb.ToString();
-
-            Program.ReportError(ex);
-
-            if (System.Diagnostics.Debugger.IsAttached)
-            {
-                System.Diagnostics.Debugger.Break();
-            }
-
-            return preparedStacktrace;
-        }
-
-        private static void PrepareStacktraceString(StringBuilder sb, StackTrace st)
-        {
-            foreach (System.Diagnostics.StackFrame frame in st.GetFrames())
-            {
-                try
-                {
-                    MethodBase? frameMethod = frame.GetMethod();
-                    if (frameMethod == null)
-                    {
-                        sb.Append("[null method] - at IL_");
-                    }
-                    else
-                    {
-                        string frameClass = frameMethod.DeclaringType?.FullName ?? "(null)";
-                        string frameMethodDisplayName = frameMethod.Name;
-                        int frameMetadataToken = frameMethod.MetadataToken;
-                        sb.Append($"{frameClass}::{frameMethodDisplayName} @{frameMetadataToken:X8} - at IL_");
-                    }
-                    sb.Append(frame.GetILOffset().ToString("X4"));
-                    sb.AppendLine();
-                }
-                catch (Exception ex)
-                {
-                    sb.AppendLine($"[error on this frame - {ex.GetType().FullName} - {ex.Message}]");
-                }
-            }
-        }
-    }
-
-    [HarmonyPatch]
-    static class UseWhitelistedResolverMatchOperation
-    {
-        static readonly WhitelistedContractResolver resolver = new WhitelistedContractResolver();
-
-        static IEnumerable<MethodBase> TargetMethods() => typeof(MatchOperation)
-            .GetConstructors();
-
-        [HarmonyPostfix]
-        [HarmonyPatch]
-        static void Postfix(MatchOperation __instance)
-        {
-			SerializeResolver.settings.ContractResolver = UseWhitelistedResolverMatchOperation.resolver;
-        }
-    }
-
-    [HarmonyPatch]
-    static class UseWhitelistedResolverMatchBoard
-    {
-        static readonly WhitelistedContractResolver resolver = new WhitelistedContractResolver();
-
-        static IEnumerable<MethodBase> TargetMethods() => typeof(MatchBoard)
-            .GetConstructors();
-
-        [HarmonyPostfix]
-        [HarmonyPatch]
-        static void Postfix(MatchBoard __instance)
-        {
-            SerializeResolver.settings.ContractResolver = UseWhitelistedResolverMatchBoard.resolver;
-        }
-    }
-
-    [HarmonyPatch]
-    static class UseWhitelistedResolverGameState
-    {
-        static readonly WhitelistedContractResolver resolver = new WhitelistedContractResolver();
-
-        static IEnumerable<MethodBase> TargetMethods() => typeof(GameState)
-            .GetConstructors();
-
-        [HarmonyPostfix]
-        [HarmonyPatch]
-        static void Postfix(GameState __instance)
-        {
-            __instance.settings.ContractResolver = resolver;
-        }
     }
 
     /// <summary>
