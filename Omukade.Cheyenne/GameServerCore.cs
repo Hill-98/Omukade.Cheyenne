@@ -20,6 +20,8 @@ using ClientNetworking.Models;
 using ClientNetworking.Models.GameServer;
 using ClientNetworking.Models.Matchmaking;
 using MatchLogic;
+using MatchLogic.source.MatchLogic.MatchData;
+using MatchLogic.source.MatchLogic.MatchOperation.DataObjects;
 using Newtonsoft.Json;
 using Omukade.Cheyenne.CustomMessages;
 using Omukade.Cheyenne.Encoding;
@@ -736,10 +738,16 @@ namespace Omukade.Cheyenne
                     return false;
 
                 case OperationStatus.WaitingForInput:
-                    MatchOperationResult morToSendToClient = new MatchOperationResult(currentOperation, deltaIndex: currentOperation.lastSentDeltaIndex, isInputUpdate: isInputUpdate);
 
                     foreach (SharedSDKUtils.PlayerInfo currentPlayer in currentGameState.playerInfos)
                     {
+                        MatchOperationResult morToSendToClient = CreateRebuiltPlayerScopedMatchOperationResult(
+                            currentOperation,
+                            currentOperation.lastSentDeltaIndex,
+                            currentOperation.workingBoard.player1.ownerPlayerId == currentPlayer.playerID,
+                            isInputUpdate,
+                            new MatchOperationResultEntityProviderFactory(useFilteredSerializedMatchOperationResultEntityProvider: true)
+                                .CreateMatchOperationResultEntityProvider());
                         ServerMessage morSmg = new ServerMessage(MessageType.MatchOperation, morToSendToClient, currentPlayer.playerID, morToSendToClient.operationID, currentGameState.matchId);
                         PlayerMessage morPmg = morSmg.AsPlayerMessage();
                         SendPacketToClient(UserMetadata.GetValueOrDefault(currentPlayer.playerID), morPmg);
@@ -752,11 +760,17 @@ namespace Omukade.Cheyenne
                     currentOperation.lastSentDeltaIndex = currentOperation.actionModifications.Count;
                     return true;
                 default:
-                    MatchOperationResult mor = new MatchOperationResult(currentOperation, deltaIndex: currentOperation.lastSentDeltaIndex, isInputUpdate: isInputUpdate);
-                    byte[] precompressedMor = MessageExtensions.PrecompressObject(mor, 9);
 
                     foreach (SharedSDKUtils.PlayerInfo currentPlayer in currentGameState.playerInfos)
                     {
+                        MatchOperationResult mor = CreateRebuiltPlayerScopedMatchOperationResult(
+                            currentOperation,
+                            currentOperation.lastSentDeltaIndex,
+                            currentOperation.workingBoard.player1.ownerPlayerId == currentPlayer.playerID,
+                            isInputUpdate,
+                            new MatchOperationResultEntityProviderFactory(useFilteredSerializedMatchOperationResultEntityProvider: true)
+                                .CreateMatchOperationResultEntityProvider());
+                        byte[] precompressedMor = MessageExtensions.PrecompressObject(mor, 9);
                         ServerMessage smg = new ServerMessage(MessageType.MatchOperation, string.Empty, currentPlayer.playerID, mor.operationID, currentGameState.matchId);
                         smg.compressedValue = precompressedMor;
 
@@ -777,6 +791,60 @@ namespace Omukade.Cheyenne
 
             RemovePlayerFromAllMatchmaking(playerData);
             UserMetadata.Remove(playerData.PlayerId!);
+        }
+
+        // The stock player-scoped constructor
+        // MatchOperationResult(operation, deltaIndex, isPlayer1, isInputUpdate, entityProvider)
+        // clones action modifications through JSON and loses ActionModification.updatedEntities.
+        // Rebuild them before continuing with the same Privatize/provider flow.
+        private static MatchOperationResult CreateRebuiltPlayerScopedMatchOperationResult(
+            MatchOperation operation,
+            int deltaIndex,
+            bool isPlayer1,
+            bool isInputUpdate,
+            IMatchOperationResultEntityProvider entityProvider)
+        {
+            MatchOperationResult result = new MatchOperationResult();
+            result.messageIndex = isPlayer1 ? operation.p1MessageIndex++ : operation.p2MessageIndex++;
+            result.PopulateMainVariables(operation, isInputUpdate);
+
+            List<string> hiddenEffects = new List<string>();
+            bool p1InSetup = operation.workingBoard.player1.GetMetaData<int>(MetaDataKey.PlayerSetupState) == 0;
+            bool p2InSetup = operation.workingBoard.player2.GetMetaData<int>(MetaDataKey.PlayerSetupState) == 0;
+            List<ActionModification> copiedActionModifications = operation.CopyActionMods();
+
+            for (int i = deltaIndex; i < copiedActionModifications.Count; i++)
+            {
+                ActionModification actionModification = copiedActionModifications[i];
+                // Key Operation: Rebuild the Updated Entities at Action Modifications
+                actionModification.RebuildUpdatedEntities(operation.workingBoard);
+
+                if (operation.workingBoard.GetEntityByID(actionModification.actionOriginEntityID) is CardEntity cardEntity
+                    && MatchUtils.IsOutOfPlay(cardEntity.currentGamePos))
+                {
+                    actionModification.SetOriginIndex(MatchUtils.GetEntities(cardEntity.currentGamePos, new StateInformation(operation, null, null)).IndexOf(cardEntity));
+                }
+
+                actionModification.Privatize(p1InSetup, p2InSetup, isPlayer1, result.updatedEntities, hiddenEffects);
+
+                foreach (ActionModification.UpdatedEntity updatedEntity in actionModification.updatedEntities)
+                {
+                    entityProvider.PopulateUpdatedEntities(operation.workingBoard, updatedEntity, result.updatedEntities);
+                }
+
+                result.actionModifications.Add(actionModification);
+            }
+
+            List<string> updatedAbilityStates = operation.workingBoard.updatedAbilityStates;
+            for (int i = updatedAbilityStates.Count - 1; i >= 0; i--)
+            {
+                if (!result.AddToUpdatedEntitiesIfPublic(operation.workingBoard, updatedAbilityStates[i], isPlayer1))
+                {
+                    updatedAbilityStates.RemoveAt(i);
+                }
+            }
+
+            return result;
         }
 
         public void ForcePlayerToQuit(PlayerMetadata playerData)
