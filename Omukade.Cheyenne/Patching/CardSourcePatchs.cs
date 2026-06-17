@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using MatchLogic;
 
 namespace Omukade.Cheyenne.Patching
 {
     internal static class CardSourcePatchs
     {
-        // Token: 0x06000090 RID: 144 RVA: 0x00005D84 File Offset: 0x00003F84
         public static void Patch(CardSource card)
         {
             if (card == null)

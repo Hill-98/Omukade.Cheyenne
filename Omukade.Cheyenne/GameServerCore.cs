@@ -33,7 +33,6 @@ using SharedLogicUtils.source.FeatureFlags;
 using SharedLogicUtils.source.Services.Query.Contexts;
 using SharedLogicUtils.source.Services.Query.Responses;
 using SharedSDKUtils;
-using System.Collections.Generic;
 
 namespace Omukade.Cheyenne
 {
@@ -651,9 +650,8 @@ namespace Omukade.Cheyenne
                 p2UseMatchTimer: gameState.playerInfos[PLAYER_TWO].settings.useMatchTimer,
                 p2UseOperationTimer: gameState.playerInfos[PLAYER_TWO].settings.useOperationTimer,
                 p2UseAutoSelect: gameState.playerInfos[PLAYER_TWO].settings.useAutoSelect,
-
-                cardCacheVersion: DateBasedVersion.DefaultVersion,
                 matchMode: MatchMode.Standard,
+                matchStartTimeVersion: DateBasedVersion.DefaultVersion,
                 prizeCount: config.DebugPrizesPerPlayer ?? 6,
                 debug: gameState.CanUseDebug,
                 featureFlags: FeatureFlags
