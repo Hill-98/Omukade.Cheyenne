@@ -110,16 +110,13 @@ namespace Omukade.Cheyenne
             };
             this.expandedImplementedCards_ChecksumMatchesResponse = new ImplementedExpandedCardsV1 { Checksum = this.expandedImplementedCards_FullDataResponse.Checksum };
 
+            BasicMatchmakingSwimlane rankedSwimlane = new(GameplayType.Ranked, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane standardSwimlane = new(GameplayType.Casual, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane expandedSwimlane = new(GameplayType.Casual, GameMode.Expanded, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane trainerTrialsSwimlane = new(GameplayType.Casual, GameMode.TrainerTrials, SwimlaneCompletedMatchMakingCallback);
-            if (config.OneGameModeMatch)
-            {
-                standardSwimlane = expandedSwimlane;
-                trainerTrialsSwimlane = expandedSwimlane;
-            }
             MatchmakingSwimlanes = new(2)
             {
+                { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Ranked, GameMode.Standard), rankedSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Standard), standardSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Expanded), expandedSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.TrainerTrials), trainerTrialsSwimlane },
@@ -144,7 +141,10 @@ namespace Omukade.Cheyenne
 
         private void SwimlaneCompletedMatchMakingCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2)
         {
-            this.StartGameBetweenTwoPlayers(player1, player2, null);
+            MatchmakingContext context = new MatchmakingContext();
+            context.gameMode = swimlane.format;
+            context.gameplayType = swimlane.gameplayType;
+            this.StartGameBetweenTwoPlayers(player1, player2, context);
         }
 
         public static void PatchRainier()
@@ -239,7 +239,7 @@ namespace Omukade.Cheyenne
                         this.ErrorHandler?.Invoke($"WARN: Trampling already-existing player metadata for PID {sdm.PlayerId} - display name {existingPlayer.PlayerDisplayName ?? "[no displayname]"}", null);
 #warning Due to the async nature of websockets, this might get messy.
                         existingPlayer.PlayerConnectionHelens.DisconnectClientImmediately();
-                        existingPlayer.PlayerId = null; // FIXME: hack so we don't try to double-dispose of this player.
+                        existingPlayer.PlayerId = null;     
                     }
                     UserMetadata[sdm.PlayerId] = dataForConnection;
                 }
@@ -354,18 +354,6 @@ namespace Omukade.Cheyenne
                         ActiveGamesById.Remove(currentGame.matchId);
                     }
                 }
-                if (!string.IsNullOrEmpty(Program.config.ReportApiUrl))
-                {
-                    try
-                    {
-                        string body = JsonConvert.SerializeObject(currentGame, SerializeResolver.replayAuto);
-                        HttpClient client = new HttpClient();
-                        HttpResponseMessage response = await client.PostAsync(Program.config.ReportApiUrl, new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
-                    }
-                    catch (Exception)
-                    {
-                    }
-                }
             }
         }
 
@@ -387,9 +375,9 @@ namespace Omukade.Cheyenne
                     return;
                 }
 
-                uint swimlaneKey = BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, mmc.gameMode);
+                uint swimlaneKey = Program.config.OneGameModeMatch ? BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Expanded) : BasicMatchmakingSwimlane.GetFormatKey(mmc.gameplayType, mmc.gameMode);
 
-                if(this.MatchmakingSwimlanes.TryGetValue(swimlaneKey, out BasicMatchmakingSwimlane queueToUse))
+                if(this.MatchmakingSwimlanes.TryGetValue(swimlaneKey, out IMatchmakingSwimlane queueToUse))
                 {
                     queueToUse.EnqueuePlayer(player);
                 }
@@ -576,8 +564,8 @@ namespace Omukade.Cheyenne
         {
             context = context ?? new MatchmakingContext()
             {
-                gameMode = GameMode.Standard,
-                gameplayType = GameplayType.Friend
+                gameMode = GameMode.Expanded,
+                gameplayType = GameplayType.Offline
             };
             context.useMatchTimer = context.useMatchTimer && config.EnableGameTimers;
             context.useOperationTimer = context.useOperationTimer && config.EnableGameTimers;
@@ -591,6 +579,7 @@ namespace Omukade.Cheyenne
                 gameMode = context.gameMode,
                 gameplayType = context.gameplayType,
                 matchId = Guid.NewGuid().ToString(),
+                matchStartTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             };
 
             // By default, the game rules always have Player 1 pick the opening coin flip. To "fix" this, crudely randomize the player order.
@@ -662,8 +651,9 @@ namespace Omukade.Cheyenne
                 p2UseMatchTimer: gameState.playerInfos[PLAYER_TWO].settings.useMatchTimer,
                 p2UseOperationTimer: gameState.playerInfos[PLAYER_TWO].settings.useOperationTimer,
                 p2UseAutoSelect: gameState.playerInfos[PLAYER_TWO].settings.useAutoSelect,
+
                 matchMode: MatchMode.Standard,
-                matchStartTimeVersion: DateBasedVersion.DefaultVersion,
+                matchStartTimeVersion: new DateBasedVersion(DateTime.UtcNow),
                 prizeCount: config.DebugPrizesPerPlayer ?? 6,
                 debug: gameState.CanUseDebug,
                 featureFlags: FeatureFlags
@@ -729,12 +719,12 @@ namespace Omukade.Cheyenne
             if ((forPlayer1 && mo.workingBoard.player1.ownerPlayerId == playerId) || (!forPlayer1 && mo.workingBoard.player2.ownerPlayerId == playerId))
             {
                 PlayerSelectionInfo psi = new PlayerSelectionInfo(ps.CopySelection(), mo, isOffline: false);
-                return new ServerMessage(MessageType.MatchInput, psi, playerId, mo.operationID, mo.matchID);
+                return new ServerMessage(MessageType.MatchInput, psi, playerId, mo.operationID, mo.matchID, psi.messageIndex);
             }
             else
             {
                 OpponentSelectionInfo osi = new OpponentSelectionInfo(ps, mo, isOffline: false);
-                return new ServerMessage(MessageType.OPMatchInput, osi, playerId, mo.operationID, mo.matchID);
+                return new ServerMessage(MessageType.OPMatchInput, osi, playerId, mo.operationID, mo.matchID, osi.messageIndex);
             }
         }
 
@@ -758,7 +748,7 @@ namespace Omukade.Cheyenne
                             isInputUpdate,
                             new MatchOperationResultEntityProviderFactory(useFilteredSerializedMatchOperationResultEntityProvider: true)
                                 .CreateMatchOperationResultEntityProvider());
-                        ServerMessage morSmg = new ServerMessage(MessageType.MatchOperation, morToSendToClient, currentPlayer.playerID, morToSendToClient.operationID, currentGameState.matchId);
+                        ServerMessage morSmg = new ServerMessage(MessageType.MatchOperation, morToSendToClient, currentPlayer.playerID, morToSendToClient.operationID, currentGameState.matchId, morToSendToClient.messageIndex);
                         PlayerMessage morPmg = morSmg.AsPlayerMessage();
                         SendPacketToClient(UserMetadata.GetValueOrDefault(currentPlayer.playerID), morPmg);
 
@@ -781,7 +771,7 @@ namespace Omukade.Cheyenne
                             new MatchOperationResultEntityProviderFactory(useFilteredSerializedMatchOperationResultEntityProvider: true)
                                 .CreateMatchOperationResultEntityProvider());
                         byte[] precompressedMor = MessageExtensions.PrecompressObject(mor, 9);
-                        ServerMessage smg = new ServerMessage(MessageType.MatchOperation, string.Empty, currentPlayer.playerID, mor.operationID, currentGameState.matchId);
+                        ServerMessage smg = new ServerMessage(MessageType.MatchOperation, string.Empty, currentPlayer.playerID, mor.operationID, currentGameState.matchId, mor.messageIndex);
                         smg.compressedValue = precompressedMor;
 
                         PlayerMessage pmg = smg.AsPlayerMessage();

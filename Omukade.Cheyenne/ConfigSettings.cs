@@ -39,9 +39,6 @@ namespace Omukade.Cheyenne
         [JsonProperty(PropertyName = "player-name-prefix")]
         public string PlayerNamePrefix = string.Empty;
 
-        [JsonProperty(PropertyName = "report-api-url")]
-        public string ReportApiUrl = string.Empty;
-
         [JsonProperty(PropertyName = "ws-port")]
         public int HttpPort = 10850;
 
@@ -107,6 +104,6 @@ namespace Omukade.Cheyenne
         public int? DebugGameTimerTime = null;
 
         [JsonProperty(PropertyName = "debug-wait-match-same-opponent")]
-        public int? DebugWaitMatchSameOpponent = 15;
+        public int? DebugWaitMatchSameOpponent = null;
     }
 }
