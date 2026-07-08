@@ -21,11 +21,6 @@ using Omukade.Cheyenne.Miniserver.Controllers;
 using ClientNetworking.Models.Inventory;
 using SharedLogicUtils.DataTypes;
 using SharedSDKUtils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Omukade.Cheyenne
 {
@@ -37,6 +32,8 @@ namespace Omukade.Cheyenne
         public IClientConnection PlayerConnectionHelens;
         public string? PlayerDisplayName;
         public string? PlayerId;
+
+        public DateTime JoinMatchTime = DateTime.Now;
 
         public bool MuteAvatarEmote = false;
 

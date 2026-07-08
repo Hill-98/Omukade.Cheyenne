@@ -79,7 +79,8 @@ namespace Omukade.Cheyenne
         internal Dictionary<string, PlayerMetadata> UserMetadata = new Dictionary<string, PlayerMetadata>(2);
 
         internal Dictionary<string, GameStateOmukade> ActiveGamesById = new Dictionary<string, GameStateOmukade>(10);
-        Dictionary<uint, BasicMatchmakingSwimlane> MatchmakingSwimlanes;
+        internal Dictionary<uint, IMatchmakingSwimlane> MatchmakingSwimlanes;
+        internal System.Timers.Timer MatchmakingSwimlanesTimer = new();
 
         private ImplementedExpandedCardsV1 expandedImplementedCards_ChecksumMatchesResponse;
         private ImplementedExpandedCardsV1 expandedImplementedCards_FullDataResponse;
@@ -128,6 +129,17 @@ namespace Omukade.Cheyenne
             {
                 AllowPlayerList = new PlayerList(Program.config.AllowPlayersFile);
             }
+
+            MatchmakingSwimlanesTimer.AutoReset = true;
+            MatchmakingSwimlanesTimer.Interval = 3000;
+            MatchmakingSwimlanesTimer.Elapsed += (sender, e) =>
+            {
+                foreach (var item in MatchmakingSwimlanes.Values)
+                {
+                    item.Tick();
+                }
+            };
+            MatchmakingSwimlanesTimer.Start();
         }
 
         private void SwimlaneCompletedMatchMakingCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2)

@@ -4,6 +4,9 @@ namespace Omukade.Cheyenne.Matchmaking
 {
     public interface IMatchmakingSwimlane
     {
+        GameplayType gameplayType { get; init; }
+        GameMode format { get; init; }
+
         /// <summary>
         /// The callback that will be fired when two players are matched together and a game should be started between them.
         /// </summary>
@@ -24,10 +27,6 @@ namespace Omukade.Cheyenne.Matchmaking
         /// <summary>
         /// Performs a periodic tick to process queued players (eg, perform ELO-based matchmaking once enough players are available).
         /// </summary>
-        /// <remarks>Implementing this method is optional; not all matchmaking imlementations require ticks to function.</remarks>
         void Tick() { }
-
-        GameplayType gameplayType { get; init; }
-        GameMode format { get; init; }
     }
 }
