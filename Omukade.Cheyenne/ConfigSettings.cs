@@ -17,11 +17,6 @@
 **************************************************************************/
 
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Omukade.Cheyenne
 {
@@ -38,6 +33,9 @@ namespace Omukade.Cheyenne
 
         [JsonProperty(PropertyName = "player-name-prefix")]
         public string PlayerNamePrefix = string.Empty;
+
+        [JsonProperty(PropertyName = "rank-data-service-endpoint")]
+        public string RankDataServiceEndpoint = string.Empty;
 
         [JsonProperty(PropertyName = "ws-port")]
         public int HttpPort = 10850;
@@ -102,8 +100,5 @@ namespace Omukade.Cheyenne
 
         [JsonProperty(PropertyName = "debug-game-timer-time")]
         public int? DebugGameTimerTime = null;
-
-        [JsonProperty(PropertyName = "debug-wait-match-same-opponent")]
-        public int? DebugWaitMatchSameOpponent = null;
     }
 }

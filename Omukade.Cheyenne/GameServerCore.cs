@@ -28,6 +28,7 @@ using Omukade.Cheyenne.Encoding;
 using Omukade.Cheyenne.Matchmaking;
 using Omukade.Cheyenne.Model;
 using Omukade.Cheyenne.Patching;
+using Omukade.Cheyenne.Services;
 using RainierClientSDK;
 using SharedLogicUtils.source.FeatureFlags;
 using SharedLogicUtils.source.Services.Query.Contexts;
@@ -85,6 +86,8 @@ namespace Omukade.Cheyenne
         private ImplementedExpandedCardsV1 expandedImplementedCards_ChecksumMatchesResponse;
         private ImplementedExpandedCardsV1 expandedImplementedCards_FullDataResponse;
 
+        internal RankDataService? rankDataService;
+
         public GameServerCore(ConfigSettings settings)
         {
             this.config = settings;
@@ -110,7 +113,12 @@ namespace Omukade.Cheyenne
             };
             this.expandedImplementedCards_ChecksumMatchesResponse = new ImplementedExpandedCardsV1 { Checksum = this.expandedImplementedCards_FullDataResponse.Checksum };
 
-            BasicMatchmakingSwimlane rankedSwimlane = new(GameplayType.Ranked, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
+            if (!string.IsNullOrEmpty(this.config.RankDataServiceEndpoint))
+            {
+                rankDataService = new RankDataService(this.config.RankDataServiceEndpoint);
+            }
+
+            IMatchmakingSwimlane rankedSwimlane = rankDataService == null ? new BasicMatchmakingSwimlane(GameplayType.Ranked, GameMode.Standard, SwimlaneCompletedMatchMakingCallback) : new RankMatchmakingSwimlane(GameplayType.Ranked, GameMode.Standard, SwimlaneCompletedMatchMakingCallback, rankDataService);
             BasicMatchmakingSwimlane standardSwimlane = new(GameplayType.Casual, GameMode.Standard, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane expandedSwimlane = new(GameplayType.Casual, GameMode.Expanded, SwimlaneCompletedMatchMakingCallback);
             BasicMatchmakingSwimlane trainerTrialsSwimlane = new(GameplayType.Casual, GameMode.TrainerTrials, SwimlaneCompletedMatchMakingCallback);
@@ -121,6 +129,8 @@ namespace Omukade.Cheyenne
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.Expanded), expandedSwimlane },
                 { BasicMatchmakingSwimlane.GetFormatKey(GameplayType.Casual, GameMode.TrainerTrials), trainerTrialsSwimlane },
             };
+
+            Console.WriteLine("Rank Mode: " + (rankedSwimlane.GetType() == typeof(RankMatchmakingSwimlane)).ToString());
 
             if (File.Exists(Program.config.AllowPlayersFile))
             {
@@ -354,6 +364,10 @@ namespace Omukade.Cheyenne
                         ActiveGamesById.Remove(currentGame.matchId);
                     }
                 }
+                if (rankDataService != null && currentGame.gameplayType == GameplayType.Ranked)
+                {
+                    await rankDataService.MatchEnd(currentGame);
+                }
             }
         }
 
@@ -474,6 +488,24 @@ namespace Omukade.Cheyenne
             }
         }
 
+        public async Task<RankDataResponse> HandleGetRankData(PlayerMetadata? player)
+        {
+            if (rankDataService == null)
+            {
+                return new RankDataResponse()
+                {
+                    exp = 0,
+                    highestExp = 0,
+                };
+            }
+            RankPlayerExpReponse data = await rankDataService.GetPlayerExp(player!.PlayerId!);
+            return new RankDataResponse()
+            {
+                exp = data.exp,
+                highestExp = data.highestExp,
+            };
+        }
+
         public void HandleGetSupportedExpandedCards(PlayerMetadata? player, GetImplementedExpandedCardsV1 giecV1)
         {
             if (giecV1.Checksum == this.expandedImplementedCards_FullDataResponse.Checksum)
@@ -491,7 +523,7 @@ namespace Omukade.Cheyenne
             string? concernedPlayerId = playerData.PlayerId;
             if (concernedPlayerId == null) return;
 
-            foreach (BasicMatchmakingSwimlane swimlane in this.MatchmakingSwimlanes.Values)
+            foreach (IMatchmakingSwimlane swimlane in this.MatchmakingSwimlanes.Values)
             {
                 swimlane.RemovePlayerFromMatchmaking(playerData);
             }
@@ -597,6 +629,7 @@ namespace Omukade.Cheyenne
             gameState.player1metadata = playerOneMetadata;
             gameState.playerInfos[PLAYER_ONE].playerName = playerOneMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_ONE].playerID = playerOneMetadata.PlayerId;
+            gameState.playerInfos[PLAYER_ONE].playerExp = playerOneMetadata.exp;
             gameState.playerInfos[PLAYER_ONE].sentPlayerInfo = true;
             gameState.playerInfos[PLAYER_ONE].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_ONE].settings.name = playerOneMetadata.PlayerDisplayName;
@@ -607,6 +640,7 @@ namespace Omukade.Cheyenne
             gameState.player2metadata = playerTwoMetadata;
             gameState.playerInfos[PLAYER_TWO].playerName = playerTwoMetadata.PlayerDisplayName;
             gameState.playerInfos[PLAYER_TWO].playerID = playerTwoMetadata.PlayerId;
+            gameState.playerInfos[PLAYER_TWO].playerExp = playerTwoMetadata.exp ;
             gameState.playerInfos[PLAYER_TWO].sentPlayerInfo = true;
             gameState.playerInfos[PLAYER_TWO].settings = new PlayerSettings { gameMode = context.gameMode, gameplayType = context.gameplayType, useMatchTimer = context.useMatchTimer, useOperationTimer = context.useOperationTimer, matchMode = MatchMode.Standard, matchTime = context.matchTime };
             gameState.playerInfos[PLAYER_TWO].settings.outfit = playerTwoMetadata.PlayerOutfit;

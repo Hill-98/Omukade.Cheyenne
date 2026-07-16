@@ -16,13 +16,11 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **************************************************************************/
 
-using ClientNetworking;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Omukade.AutoPAR;
 using Omukade.Cheyenne.Encoding;
-using Omukade.Cheyenne.Miniserver.Controllers;
+using Omukade.Cheyenne.Services;
 using Spectre.Console;
 using System.Diagnostics;
 using System.Net.Sockets;

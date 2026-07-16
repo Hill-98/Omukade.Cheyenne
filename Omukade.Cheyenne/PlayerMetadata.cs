@@ -17,8 +17,6 @@
 **************************************************************************/
 
 using Omukade.Cheyenne.ClientConnections;
-using Omukade.Cheyenne.Miniserver.Controllers;
-using ClientNetworking.Models.Inventory;
 using SharedLogicUtils.DataTypes;
 using SharedSDKUtils;
 
@@ -32,6 +30,9 @@ namespace Omukade.Cheyenne
         public IClientConnection PlayerConnectionHelens;
         public string? PlayerDisplayName;
         public string? PlayerId;
+
+        public uint exp { get; set; } = 0;
+        public uint highestExp { get; set; } = 0;
 
         public DateTime JoinMatchTime = DateTime.Now;
 

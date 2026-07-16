@@ -9,6 +9,16 @@ namespace Omukade.Cheyenne.Matchmaking
             return unchecked((uint)gameplayType << 0xffff | (uint)format);
         }
 
+        public GameplayType gameplayType { get; init; }
+        public GameMode format { get; init; }
+
+        private Mutex mut = new();
+
+        private Dictionary<string, string> lastOpponents = new Dictionary<string, string>();
+
+        internal Queue<PlayerMetadata> enqueuedPlayers = new Queue<PlayerMetadata>();
+
+        public MatchmakingCompleteCallback MatchMakingCompleteCallback { get; init; }
 
         public BasicMatchmakingSwimlane(GameplayType gameplayType, GameMode format, MatchmakingCompleteCallback matchmakingCompleteCallback)
         {
@@ -17,18 +27,6 @@ namespace Omukade.Cheyenne.Matchmaking
             MatchMakingCompleteCallback = matchmakingCompleteCallback;
         }
 
-        public GameplayType gameplayType { get; init; }
-        public GameMode format { get; init; }
-
-        private Mutex mut = new();
-
-        private Dictionary<string, string> lastMatchPlayers = new Dictionary<string, string>();
-
-        internal Queue<PlayerMetadata> enqueuedPlayers = new Queue<PlayerMetadata>();
-
-        public MatchmakingCompleteCallback MatchMakingCompleteCallback { get; init; }
-
-        /// <inheritdoc/>
         public void EnqueuePlayer(PlayerMetadata playerMetadata)
         {
             foreach (PlayerMetadata player in enqueuedPlayers)
@@ -63,21 +61,19 @@ namespace Omukade.Cheyenne.Matchmaking
             string p1Id = playerMetadata.PlayerId ?? "x";
             string p2Id = playerMetadata2.PlayerId ?? "x";
             string? player1LastOpponent;
-            lastMatchPlayers.TryGetValue(p1Id, out player1LastOpponent);
+            lastOpponents.TryGetValue(p1Id, out player1LastOpponent);
             double tSec = (DateTime.Now - playerMetadata.JoinMatchTime).TotalSeconds;
             if (player1LastOpponent != p2Id || tSec >= 15 )
             {
-                lastMatchPlayers[p1Id] = p2Id;
-                lastMatchPlayers[p2Id] = p2Id;
+                lastOpponents[p1Id] = p2Id;
+                lastOpponents[p2Id] = p2Id;
                 MatchMakingCompleteCallback(this, playerMetadata, playerMetadata2);
                 return;
             }
             enqueuedPlayers.Enqueue(playerMetadata);
             enqueuedPlayers.Enqueue(playerMetadata2);
-            return;
         }
 
-        /// <inheritdoc/>
         public void RemovePlayerFromMatchmaking(PlayerMetadata playerMetadata)
         {
             bool playerIsQueued = false;
@@ -126,6 +122,4 @@ namespace Omukade.Cheyenne.Matchmaking
             }
         }
     }
-
-    public delegate void MatchmakingCompleteCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2);
 }

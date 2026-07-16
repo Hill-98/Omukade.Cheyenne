@@ -17,7 +17,6 @@
 **************************************************************************/
 
 using Google.FlatBuffers;
-using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Omukade.Cheyenne.ClientConnections;
@@ -528,6 +527,7 @@ namespace Omukade.Cheyenne.Miniserver.Controllers
                     nameof(ClientNetworking.Models.Query.QueryMessage) => JsonConvert.DeserializeObject<ClientNetworking.Models.Query.QueryMessage>(jsonPayload),
                     nameof(ClientNetworking.Models.User.DataStoreSaveRequest) => JsonConvert.DeserializeObject<ClientNetworking.Models.User.DataStoreSaveRequest>(jsonPayload),
                     nameof(SupplementalDataMessageV2) => JsonConvert.DeserializeObject<SupplementalDataMessageV2>(jsonPayload),
+                    nameof(GetRankData) => JsonConvert.DeserializeObject<GetRankData>(jsonPayload),
                     nameof(GetOnlineFriends) => JsonConvert.DeserializeObject<GetOnlineFriends>(jsonPayload),
                     nameof(HeartbeatPayload) => JsonConvert.DeserializeObject<HeartbeatPayload>(jsonPayload),
                     nameof(PingPayload) => JsonConvert.DeserializeObject<PingPayload>(jsonPayload),

@@ -29,4 +29,6 @@ namespace Omukade.Cheyenne.Matchmaking
         /// </summary>
         void Tick() { }
     }
+
+    public delegate void MatchmakingCompleteCallback(IMatchmakingSwimlane swimlane, PlayerMetadata player1, PlayerMetadata player2);
 }

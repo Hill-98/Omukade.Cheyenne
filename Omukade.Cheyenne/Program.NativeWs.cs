@@ -35,6 +35,7 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using Omukade.Cheyenne.Encoding;
 using MatchLogic;
+using System.Threading.Tasks;
 
 namespace Omukade.Cheyenne
 {
@@ -170,7 +171,7 @@ namespace Omukade.Cheyenne
             wsMessageProcessorThread?.Join(10_000);
         }
 
-        static void ProcessSingleWsMessage(ReceivedMessage messageWrapper)
+        static async Task ProcessSingleWsMessage(ReceivedMessage messageWrapper)
         {
             IClientConnection controller = messageWrapper.ReceivedFrom;
             object message = messageWrapper.Message;
@@ -215,6 +216,9 @@ namespace Omukade.Cheyenne
                             ofr = new OnlineFriendsResponse { CurrentlyOnlineFriends = matchingOnlinePlayers, TransactionId = gof.TransactionId };
                         }
                         controller.SendMessageEnquued_EXPERIMENTAL(ofr);
+                        break;
+                    case GetRankData:
+                        controller.SendMessageEnquued_EXPERIMENTAL(await serverCore.HandleGetRankData(controller.Tag));
                         break;
                     case GetCurrentGamesRequest:
                         ProcessConsoleGetGamesMessage(controller);
